@@ -234,11 +234,11 @@ class TimescaleStockMarketModel:
         else:
             return 0
 
-    def is_file_done(name):
+    def is_file_done(self, name):
         '''
         Check if a file has already been included in the DB
         '''
-        return  self.raw_query("SELECT EXISTS ( SELECT 1 FROM file_done WHERE nom = '%s' );" % name)
+        return  self.raw_query("SELECT EXISTS ( SELECT 1 FROM file_done WHERE name = '%s' );" % name)
 
 
 #
