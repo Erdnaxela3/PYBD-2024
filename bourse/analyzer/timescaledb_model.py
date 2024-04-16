@@ -94,6 +94,8 @@ class TimescaleStockMarketModel:
                   close FLOAT4,
                   high FLOAT4,
                   low FLOAT4,
+                  mean FLOAT4,
+                  std FLOAT4,
                   volume INT
                 );''')
             cursor.execute('''SELECT create_hypertable('daystocks', by_range('date'));''')
@@ -233,6 +235,21 @@ class TimescaleStockMarketModel:
             return [r[0] for r in res]
         else:
             return 0
+
+    def search_company_id_from_symbol(self, symbol: str) -> int:
+        '''
+        Try to find the id of a company in our database from symbol and market.
+
+        :param symbol: symbol of the company (or part of)
+        :param market: market of the company
+        :return: the id of the company if known. 0 if unknown.
+        '''
+        res = self.raw_query('SELECT (id) FROM companies WHERE LOWER(symbol) LIKE LOWER(%s)',
+                             (symbol,))
+        if len(res) == 1:
+            return res[0][0]
+        return 0
+
 
     def is_file_done(self, name):
         '''
