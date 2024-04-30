@@ -51,7 +51,7 @@ def compute_volume_diff(stocks: pd.DataFrame):
     stocks.fillna({"volume_diff": stocks.volume}, inplace=True)
 
 
-def remove_negative_volume(stocks: pd.DataFrame):
+def remove_negative_volume(stocks: pd.DataFrame) -> pd.DataFrame:
     """
     Compute volume_diff and remove negative values.
     Volume MUST NOT be negative.
@@ -68,6 +68,7 @@ def remove_negative_volume(stocks: pd.DataFrame):
 
         nb_bad_values = len(stocks.loc[stocks.volume_diff < 0])
 
+    return stocks
 
 def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     """
@@ -80,10 +81,9 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     daystocks = grouped["value"].ohlc()
     daystocks.dropna(inplace=True)
     daystocks.index.rename("date", level=1, inplace=True)
-
-    # TODO compute volume, sum for the day
-    # TODO compute mean
-    # TODO compute std
+    daystocks["mean"] = grouped['value'].mean()
+    daystocks["std"] = grouped["value"].std()
+    daystocks['volume'] = grouped["volume"].sum()
 
     return daystocks
 
@@ -99,7 +99,10 @@ def load_df_from_files(files: list[str]) -> pd.DataFrame:
     for file in files:
         if not db.is_file_done(file)[0][0]:
             date = dateutil.parser.parse(".".join(" ".join(file.split()[1:]).split(".")[:-1]))
-            df_dict[date] = pd.read_pickle(file)
+            if date in df_dict:
+                df_dict[date] = pd.concat([df_dict[date], pd.read_pickle(file)])
+            else:    
+                df_dict[date] = pd.read_pickle(file)
         else:
             files.remove(file)
 
@@ -111,30 +114,43 @@ def load_df_from_files(files: list[str]) -> pd.DataFrame:
 
     return df
 
-def process_stocks(unprocessed_stocks: pd.DataFrame):
+def process_stocks(unprocessed_stocks: pd.DataFrame) -> pd.DataFrame:
     """
     Turn a unprocessed_stocks dataframe into a stocks dataframe.
     With symbol, without cid for now.
 
     Rename column 'last' to 'value'.
     Floatify 'value'.
+    Take mean of 'value' if multiple values are given for a same timestamp.
     Compute volume_diff and remove negative values.
+    Remove volume_diff exceeding the MAX value for INT in postgres (4 bytes int).
     'volume_diff' replaces 'volume' and gets renamed to 'volume'.
 
     The unprocessed df becomes: date, symbol, (last renamed to) value, volume, name
 
     :param unprocessed_stocks: pd.DataFrame
+    :return: pd.DataFrame
     """
+    unprocessed_stocks.drop(columns=["symbol"], inplace=True)
     unprocessed_stocks.rename(columns={"last": "value"}, inplace=True)
     unprocessed_stocks["value"] = unprocessed_stocks["value"].apply(floatify).astype(float)
-    remove_negative_volume(unprocessed_stocks)
+    
+    # TODO handle NV, T... (to discuss: maybe remove the stocks with low std or with very little data)
+
+    unprocessed_stocks['value'] = unprocessed_stocks.groupby([unprocessed_stocks.index.get_level_values(0), 'symbol'])['value'].mean()
+    unprocessed_stocks.drop_duplicates(inplace=True)
+
+    max_int_value = 100_000
+
+    unprocessed_stocks = remove_negative_volume(unprocessed_stocks)
     unprocessed_stocks.drop(columns=["volume"], inplace=True)
+    unprocessed_stocks = unprocessed_stocks[unprocessed_stocks["volume_diff"] < max_int_value]
+    unprocessed_stocks = unprocessed_stocks[unprocessed_stocks["value"] < max_int_value]
     unprocessed_stocks.rename(columns={"volume_diff": "volume"}, inplace=True)
     unprocessed_stocks["volume"] = unprocessed_stocks["volume"].astype(int)
 
-# TODO optimize this (maybe using db.__boursorama_cid dict to avoid db queries)
-# TODO handle companies that have changed name or/and symbol
-# TODO handle NV, T... (to discuss: maybe remove the stocks with low std or with very little data)
+    return unprocessed_stocks
+
 def process_companies(stocks: pd.DataFrame):
     """
     Create new entries in companies table for each (name, symbol, market id) in stocks, if not already in db.
@@ -143,39 +159,44 @@ def process_companies(stocks: pd.DataFrame):
     :param stocks: pd.DataFrame (date, symbol, value, volume, symbol, name)
     :param market: str the market the companies will belong to (amsterdam, compA, compB...)
     """
-    name_symbol = stocks[['name', 'symbol']].drop_duplicates().values
-    logger.log(mylogging.DEBUG, f"Found {len(name_symbol)} companies.")
+    new_companies_df = stocks[['name']].drop_duplicates()
+    new_companies_df.reset_index(inplace=True)
+    new_companies_df.drop(columns=['level_0'], inplace=True)
 
-    n = len(name_symbol)
-    progess = 0
+    companies_df = db.df_query("SELECT id, name, symbol FROM companies", chunksize=None)
+      
+    tmp_df = new_companies_df.merge(companies_df, on=['name', 'symbol'], how='left', indicator=True)
+    new_companies_df = tmp_df[tmp_df['_merge'] == 'left_only'][['name', 'symbol']]
+ 
+    logger.log(mylogging.DEBUG, f"New companies to add/update: {len(new_companies_df)}")
 
-    for name, symbol in name_symbol:
-        progess += 1
-        logger.log(mylogging.DEBUG, f"Processing company {progess}/{n}.")
+    for name, symbol in new_companies_df.values:
+        id = companies_df[companies_df['symbol'] == symbol]['id']
+        if len(id) != 0:
+            old_name = companies_df[companies_df['symbol'] == symbol]['name'].values[0]
+            if old_name != name and not name.startswith("SRD"):
+                db.execute("UPDATE companies SET name = %s WHERE id = %s", (name, float(id.values[0])), commit=True)
+                new_companies_df = new_companies_df[~((new_companies_df['name'] == name) & (new_companies_df['symbol'] == symbol))]
 
-        id = db.search_company_id_from_symbol(symbol)
-        logger.log(mylogging.DEBUG, f"Found company {name} {symbol} with id {id}.")
-        if id == 0:
-            db.execute(
-                "INSERT INTO companies (name, symbol) VALUES (%s, %s)",
-                (
-                    name,
-                    symbol,
-                ),
-            )
-            id = db.search_company_id_from_symbol(symbol)
-            logger.log(mylogging.DEBUG, f"Inserted company {name} {symbol} with id {id}.")
-        stocks.loc[stocks['symbol'] == symbol, 'cid'] = id
-        stocks.loc[stocks['symbol'] == symbol, 'name'] = name
+                # logger.log(mylogging.DEBUG, f"Updated company from {old_name} to {name} {symbol}, new len {len(new_companies_df)}")
 
-    stocks.set_index("cid", append=True, inplace=True)
-    stocks.reset_index(level=1, drop=True, inplace=True)
-    stocks.drop(columns=['name','symbol'], inplace=True)
+    new_companies_df.reset_index(drop=True, inplace=True)
+
+    db.df_write(new_companies_df, 'companies', index=False, commit=True)
+    companies_df = db.df_query("SELECT id, symbol FROM companies", chunksize=None)
+
+    stocks.drop(columns=['name'], inplace=True)
     stocks.index.rename("date", level=0, inplace=True)
+    stocks.reset_index(inplace=True) # stocks column date, value, volume, symbol
 
-    logger.log(mylogging.DEBUG, f"\n{stocks.head()}")
+    stocks = stocks.merge(companies_df, left_on='symbol', right_on='symbol') # columns date, value, volume, symbol, id
+    stocks.rename(columns={'id': 'cid'}, inplace=True)
 
-# TODO : store_month instead of year, year takes too much RAM (16GB+)
+    stocks.set_index(["date", "cid"], inplace=True)
+    stocks.drop(columns=['symbol'], inplace=True)
+
+    return stocks
+
 def store_month(year: str, month: str) -> list[str]:
     """
     Store a month of data on the database.
@@ -195,7 +216,7 @@ def store_month(year: str, month: str) -> list[str]:
     :param market: str
     :return: list[str] list of files stored
     """
-    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}-0*") # TODO : remove -0 to do all days of the month and not only the first 9
+    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}-*")
     logger.log(mylogging.INFO, f"Storing {year} {month}. Found {len(files)} files.")
 
     if len(files) == 0:
@@ -207,10 +228,12 @@ def store_month(year: str, month: str) -> list[str]:
     if stocks is None:
         return []
 
-    process_stocks(stocks)
+    stocks = process_stocks(stocks)
 
     logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
-    process_companies(stocks)
+    stocks = process_companies(stocks)
+
+    logger.log(mylogging.INFO, f"Storing stocks {year} {month}.")
     db.df_write(stocks, 'stocks', commit=True)
 
     logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")
@@ -222,8 +245,8 @@ def store_month(year: str, month: str) -> list[str]:
 
 
 if __name__ == "__main__":
-    years = os.listdir(BOURSORAMA_PATH)
-    months = [f"{month:02d}" for month in range(1, 2)] # TODO: change 2 to 13 to do all months
+    years = [str(year) for year in range(2019, 2024)]
+    months = [f"{month:02d}" for month in range(1, 13)]
 
     file_count = 0
 
