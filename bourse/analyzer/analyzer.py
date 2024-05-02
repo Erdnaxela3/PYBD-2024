@@ -7,6 +7,10 @@ import dateutil
 import os
 import mylogging
 
+from multiprocessing import Pool
+import sqlalchemy
+import psycopg2
+
 import timescaledb_model as tsdb
 
 logger = mylogging.getLogger("analyzer", level=mylogging.DEBUG)
@@ -186,6 +190,50 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     unprocessed_stocks["volume"] = unprocessed_stocks["volume"].astype(int)
 
 
+def write_df_chunk(chunk: pd.DataFrame, table: str, commit: bool = False):
+    """
+    Insert a chunk of df in db.
+
+    :param chunk: pd.DataFrame
+    :param table: str
+    :param commit: bool
+    """
+    logger.log(mylogging.DEBUG, f"Inserting chunk of {len(chunk)} rows in {table}.")
+
+    # need engine to use_to_sql, this is a hack to use the same connection as the one used by the db object
+    # but will retrigger the tables creation, will fail
+    # tmp_db = tsdb.TimescaleStockMarketModel("bourse", "ricou", "db", "monmdp")
+    # tmp_db.df_write(chunk, table, commit)
+
+    connection = psycopg2.connect(database="bourse", user="ricou", host="db", password="monmdp")
+    engine = sqlalchemy.create_engine(f"timescaledb://ricou:monmdp@db:5432/bourse")
+    chunk.to_sql(table, engine, if_exists='append', index=True, index_label=None,
+                 chunksize=1000, dtype=None, method="multi")
+
+    if commit:
+        connection.commit()
+
+    connection.close()
+
+
+def multiprocess_write_df(df: pd.DataFrame, table: str, commit: bool = False):
+    """
+    Insert df in db with multiprocessing.
+    Insert is very slow because Python is single-process, so we need to use multiprocessing to insert in parallel.
+
+    :param df: pd.DataFrame
+    :param table: str
+    :param commit: bool
+    """
+    cpu_count = max(os.cpu_count() - 1, 1)
+    chunks = np.array_split(df, cpu_count)
+
+    logger.log(mylogging.DEBUG, f"Inserting {len(df)} rows in {table} with {cpu_count} processes.")
+
+    with Pool(cpu_count) as p:
+        p.starmap(write_df_chunk, [(chunk, table, commit) for chunk in chunks])
+
+
 def process_companies(stocks: pd.DataFrame):
     """
     Create new entries in companies table for each (name, symbol) in stocks, if not already in db.
@@ -255,7 +303,7 @@ def store_month(year: str, month: str) -> list[str]:
     :param month: str
     :return: list[str] list of files stored
     """
-    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}*")
+    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}-0*")
     logger.log(mylogging.INFO, f"Storing {year} {month}. Found {len(files)} files.")
 
     if len(files) == 0:
@@ -275,13 +323,16 @@ def store_month(year: str, month: str) -> list[str]:
     stocks = process_companies(stocks)
 
     logger.log(mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows.")
-    db.df_write(stocks, 'stocks', commit=True)
+    multiprocess_write_df(stocks, 'stocks')
+    # db.df_write(stocks, 'stocks', commit=True)
+    logger.log(mylogging.DEBUG, f"stocks count: {db.execute('SELECT COUNT(*) FROM stocks')[0][0]}")
 
     logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")
     daystocks = compute_daystocks(stocks)
 
     logger.log(mylogging.INFO, f"Storing daystocks {year} {month} in DB.")
-    db.df_write(daystocks, 'daystocks', commit=True)
+    multiprocess_write_df(daystocks, 'daystocks')
+    logger.log(mylogging.DEBUG, f"daystocks count: {db.execute('SELECT COUNT(*) FROM daystocks')[0][0]}")
 
     return files
 
