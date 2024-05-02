@@ -139,6 +139,9 @@ def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     with Pool(proc_count) as p:
         dfs = p.map(process_files, files_chunks)
 
+    if all(df is None for df in dfs):
+        return None
+
     df = pd.concat(dfs)
 
     df.sort_index(inplace=True)
