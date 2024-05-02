@@ -72,7 +72,7 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     """
     Compute a dataframe with (date, cid, open, close, high, low, volume, mean, std) for each day.
 
-    Removes rows with volume exceeding the MAX value for INT in postgres (4 bytes int) as they can not be stored.
+    Rows with volume exceeding the MAX value for INT in postgres (4 bytes int), become -1, as they can not be stored.
 
     :param stocks: pd.DataFrame with indexes: ('date', 'cid') and columns: (value', 'volume')
     :return: pd.DataFrame with ('date', 'cid'), 'open', 'close', 'high', 'low', 'volume', 'mean', 'std'
@@ -88,7 +88,7 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     daystocks['volume'] = grouped["volume"].sum()
 
     max_int_value = 2 ** 31 - 1  # 4 bytes int
-    daystocks.drop(daystocks[daystocks["volume"] >= max_int_value].index, inplace=True)
+    daystocks['volume'] = np.where(daystocks['volume'] > max_int_value, -1, daystocks['volume'])
 
     # log max volume
     max_volume = daystocks['volume'].max()
@@ -97,7 +97,7 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     return daystocks
 
 
-def load_df_from_files(files: list[str]) -> pd.DataFrame|None:
+def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     """
     Load a dataframe from a list of files.
     Sort by date.
@@ -147,14 +147,20 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     """
     unprocessed_stocks["value"] = unprocessed_stocks["value"].apply(floatify).astype(float)
 
-    # TODO handle NV, T... (to discuss: maybe remove the stocks with low std or with very little data)
-
     df_len = len(unprocessed_stocks)
     unprocessed_stocks['value'] = unprocessed_stocks.groupby(['date', 'symbol'])['value'].mean()
     unprocessed_stocks['volume'] = unprocessed_stocks.groupby(['date', 'symbol'])['volume'].mean()
+
+    std_per_symbol = unprocessed_stocks.groupby(['date', 'symbol'])['value'].std()
+    symbols_to_remove = std_per_symbol[std_per_symbol == 0].index
+    logger.log(mylogging.DEBUG, f"Removing {len(symbols_to_remove)} rows with std <= 0.")
+
+    unprocessed_stocks.drop(symbols_to_remove, inplace=True)
+
     unprocessed_stocks.reset_index(inplace=True)
     unprocessed_stocks.drop_duplicates(inplace=True)
     unprocessed_stocks.set_index(["date", "symbol"], inplace=True)
+    unprocessed_stocks.sort_index(inplace=True)
 
     logger.log(mylogging.DEBUG, f"Averaging {df_len - len(unprocessed_stocks)} common datapoint from different market.")
 
@@ -261,12 +267,14 @@ def store_month(year: str, month: str) -> list[str]:
     if stocks is None:
         return []
 
+    logger.log(mylogging.INFO, f"Loaded {year} {month}, {len(stocks)} rows.")
+
     process_stocks(stocks)
 
     logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
     stocks = process_companies(stocks)
 
-    logger.log(mylogging.INFO, f"Storing stocks {year} {month} in DB.")
+    logger.log(mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows.")
     db.df_write(stocks, 'stocks', commit=True)
 
     logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")

@@ -48,8 +48,10 @@ def companies_dropdown() -> dcc.Dropdown:
             }
             for _, row in companies_df.iterrows()
         ],
+        placeholder='Select a company...',
         value=None,
         multi=True,
+        style={'flex': '1', 'minWidth': '350px'}  # Flex and minimum width
     )
 
 
@@ -71,6 +73,7 @@ def period_dropdown() -> dcc.Dropdown:
             {"label": "1y", "value": "1YE"},
         ],
         value="1d",
+        style={'flex': '1', 'minWidth': '50px'}  # Flex and minimum width
     )
 
 
@@ -82,6 +85,7 @@ def date_range_picker() -> dcc.DatePickerRange:
     """
     return dcc.DatePickerRange(
         id="date-range-picker",
+        style={ 'minWidth': '100px'}  # Flex and minimum width
     )
 
 
@@ -98,6 +102,7 @@ def plot_style_dropdown() -> dcc.Dropdown:
             {"label": "Line", "value": "line"},
         ],
         value="candlestick",
+        style={'flex': '1', 'minWidth': '50px'}  # Flex and minimum width
     )
 
 
@@ -114,6 +119,7 @@ def scale_dropdown() -> dcc.RadioItems:
             {"label": "Log", "value": "log"},
         ],
         value="linear",
+        style={'flex': '1', 'minWidth': '20px'}  # Flex and minimum width
     )
 
 
@@ -130,6 +136,7 @@ def indicators_dropdown() -> dcc.Dropdown:
         ],
         value=[],
         multi=True,
+        style={'flex': '1', 'minWidth': '100px'}  # Flex and minimum width
     )
 
 # TODO fix deprecated plotly.graph_objects
@@ -288,15 +295,11 @@ def update_selected_companies_plot(
     ddep.Output("selected-companies-table", "children"),
     [
         ddep.Input("companies-dropdown", "value"),
-        ddep.Input("indicator-stock-cid", "value"),
     ],
 )
-def update_selected_companies_table(selected_values, indicator_stock_cid) -> html.Div:
-    if selected_values is None or len(selected_values) == 0 or indicator_stock_cid is None:
+def update_selected_companies_table(selected_values) -> html.Div:
+    if selected_values is None or len(selected_values) == 0:
         return html.Div()
-
-    # TODO fix this, only work when using float, don't know why
-    indicator_stock_cid = float(indicator_stock_cid)
 
     # TODO find a better way to keep all the information
     selected_cids = [int(cid.split("#")[0]) for cid in selected_values]
@@ -305,49 +308,79 @@ def update_selected_companies_table(selected_values, indicator_stock_cid) -> htm
     stocks_df = pd.read_sql(query, engine)
 
     # TODO add mean, std, volume when they are added in analyzer
-    table_columns = ["date", "low", "high", "open", "close"]
+    table_columns = ["date", "low", "high", "open", "close", "mean", "std", "volume"]
 
-    # TODO make it prettier
-    return html.Div(
-        [
-            # tab content
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.Table(
-                                [
-                                    html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
-                                    html.Tbody(
-                                        [
-                                            html.Tr([html.Td(row[col]) for col in table_columns])
-                                            for _, row in stocks_df[stocks_df["cid"] == indicator_stock_cid].iterrows()
-                                        ]
-                                    ),
-                                ]
-                            )
-                        ],
-                        id=f"company-{indicator_stock_cid}-content",
-                    )
-                ]
+    tabs_content = []
+
+    for selected_company in selected_values:
+        # Split the company information
+        company_id, _, company_name = selected_company.split("#")
+
+        # Query data for the current company
+        query = f"SELECT * FROM daystocks WHERE cid = {company_id}"
+        stocks_df = pd.read_sql(query, engine)
+
+        # Generate table content for the current company
+        table_content = html.Div([
+            html.Div([
+                html.Table([
+                    html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
+                    html.Tbody([
+                        html.Tr([html.Td(row[col]) for col in table_columns]) for _, row in stocks_df.iterrows()
+                    ]),
+                ]),
+            ], style={'height': 'calc(100vh - 100px)', 'overflowY': 'auto'})
+        ])
+
+        # Append the table content to the list of tabs content
+        tabs_content.append(
+            dcc.Tab(
+                label=f"{company_name}",
+                children=[table_content],
+                value=f"company-{company_id}-tab"
             )
-        ]
-    )
+        )
 
+    # Return tabs content wrapped in a Tabs component
+    return dcc.Tabs(id='tabs', children=tabs_content, value=f"company-{company_id}-tab")
 
 app.layout = html.Div(
     [
-        companies_dropdown(),
-        period_dropdown(),
-        date_range_picker(),
-        plot_style_dropdown(),
-        scale_dropdown(),
-        indicators_dropdown(),
-        html.Div(id="indicator-stock"),
-        dcc.Graph(id="selected-companies-plot"),
-        html.Div(id="selected-companies-table"),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                companies_dropdown(),
+                                period_dropdown(),
+                                date_range_picker(),
+                                plot_style_dropdown(),
+                                indicators_dropdown(),
+                                html.Div(id="indicator-stock"),
+                            ],
+                            className="top-panel",
+                        ),
+                        dcc.Graph(id="selected-companies-plot"),
+                        scale_dropdown(),
+
+                    ],
+                    className="panel left-panel",
+                ),
+                html.Div(
+                    [
+                        html.Div(id="selected-companies-table"),
+                    ],
+                    className="panel right-panel",
+                ),
+            ],
+            className="container",
+        ),
     ]
 )
+
+
+app.css.append_css({"external_url": "./assets/style.css"})
 
 if __name__ == "__main__":
     app.run(debug=True)
