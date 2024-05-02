@@ -11,7 +11,7 @@ import dash_bootstrap_components as dbc
 
 from dash.dcc import RadioItems
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"]
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200", "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"]
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
 # DATABASE_URI = 'timescaledb://ricou:monmdp@localhost:5432/bourse'  # outisde docker
@@ -67,15 +67,16 @@ def period_dropdown() -> dcc.Dropdown:
         id="period-dropdown",
         options=[
             # TODO check 10min, nothing is displayed when chosen
-            {"label": "10min", "value": "10min"},
+            {"label": "10m", "value": "10min"},
             {"label": "1h", "value": "1h"},
             {"label": "1d", "value": "1d"},
             {"label": "1w", "value": "1W"},
             {"label": "1m", "value": "1ME"},
             {"label": "1y", "value": "1YE"},
         ],
+        clearable=False,
         value="1d",
-        style={'flex': '1', 'minWidth': '50px'}  # Flex and minimum width
+        style={'flex': '1', 'maxWidth': '60px', 'maxHeight': '50px', 'border': 'none' }  # Flex and minimum width
     )
 
 
@@ -87,7 +88,7 @@ def date_range_picker() -> dcc.DatePickerRange:
     """
     return dcc.DatePickerRange(
         id="date-range-picker",
-        style={ 'minWidth': '100px'}  # Flex and minimum width
+        style={'minWidth': '100px', 'border': 'none'}
     )
 
 
@@ -100,11 +101,27 @@ def plot_style_dropdown() -> dcc.Dropdown:
     return dcc.Dropdown(
         id="plot-style-dropdown",
         options=[
-            {"label": "Candlestick", "value": "candlestick"},
-            {"label": "Line", "value": "line"},
+            {
+            "label": html.Div(
+                [
+                    html.Span(className="material-symbols-outlined", children="candlestick_chart"),
+                    html.Span("Candles"),
+                ], style={'display': 'flex','align-items': 'center'}
+            ),
+            "value": "candlestick",
+            },
+            {
+            "label": html.Div(
+                [
+                    html.Span(className="material-symbols-outlined", children="show_chart"),
+                    html.Span("Line"),
+                ], style={'display': 'flex','align-items': 'center'}
+            ),
+            "value": "line",
+            },
         ],
         value="candlestick",
-        style={'flex': '1', 'minWidth': '50px'}  # Flex and minimum width
+        style={'flex': '1', 'maxWidth': '150px', 'border': 'none' }  # Flex and minimum width
     )
 
 
@@ -131,14 +148,18 @@ def indicators_dropdown() -> dcc.Dropdown:
 
     :return: dcc.Dropdown
     """
-    return dcc.Dropdown(
-        id="indicators-dropdown",
-        options=[
-            {"label": "Bollinger Bands", "value": "bollinger-bands"},
-        ],
-        value=[],
-        multi=True,
-        style={'flex': '1', 'minWidth': '100px'}  # Flex and minimum width
+    return html.Div(
+        dcc.Dropdown(
+            id="indicators-dropdown",
+            placeholder="Select indicator",
+            options=[
+                {"label": "Bollinger Bands", "value": "bollinger-bands"},
+            ],
+            value=[],
+            multi=True,
+            clearable=True,
+            style={'flex': '1', 'minWidth': '150px', 'border': 'none'}  # Flex and minimum width
+        )
     )
 
 # TODO fix deprecated plotly.graph_objects
@@ -149,7 +170,6 @@ def go_candlestick(ohlc_df: pd.DataFrame, name: str) -> go.Candlestick:
         high=ohlc_df["high"],
         low=ohlc_df["low"],
         close=ohlc_df["close"],
-        # text=symbol,
         name=name,
     )
 
@@ -174,13 +194,16 @@ def go_line(stocks_df: pd.DataFrame, cid: float, name: str) -> go.Line:
         ddep.Input("companies-dropdown", "value"),
     ],
 )
-def stock_used_for_indicator(selected_companies) -> RadioItems | None:
+def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
     if selected_companies is None or len(selected_companies) == 0:
         return None
 
-    return dcc.RadioItems(
+    return dcc.Dropdown(
         id="indicator-stock-cid",
+        placeholder="On company",
+        clearable=True,
         options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
+        style={'flex': '1', 'minWidth': '200px', 'border': 'none'}  # Flex and minimum width
     )
 
 
@@ -382,18 +405,17 @@ app.layout = html.Div(
             ],
             id="modal",
             is_open=False,
-            # size="xl", 
-            # backdrop=True, 
-            # scrollable=True, 
-            # centered=True,  
-            # keyboard=True, 
         ),
     ]
 ),
                 # companies_dropdown(),
-                period_dropdown(),
-                date_range_picker(),
+                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px'}),
+                period_dropdown(),        
+                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px'}),
                 plot_style_dropdown(),
+                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px', 'margin': '0 10px 0 0'}),
+                date_range_picker(),
+                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px', 'margin': '0 0 0 10px'}),
                 indicators_dropdown(),
                 html.Div(id="indicator-stock"),
             ],

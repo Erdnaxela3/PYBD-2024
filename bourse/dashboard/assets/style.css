@@ -26,9 +26,9 @@
   flex: 1;
 }
 
-.left-panel {
+/* .left-panel {
   margin-right: 10px;
-}
+} */
 
 .right-panel {
   flex: 0 0 35%; 
@@ -40,13 +40,9 @@
   flex-direction: row;
   align-items: center;
   margin-bottom: 10px;
-  border-bottom: 2px solid #ccc;
+  border-bottom: 3px solid #ccc;
 }
 
-
-.top-panel > * {
-  margin-right: 10px; 
-}
 
 table {
   border-collapse: collapse;
