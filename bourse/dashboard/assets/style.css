@@ -1,6 +1,8 @@
-.container {
+.bottom-panel {
   display: flex;
   flex-direction: row;
+  align-items: center;
+  margin: 0;
 }
 
 
@@ -21,18 +23,14 @@
   object-fit: cover;
 }
 
-
-.panel {
-  flex: 1;
+.left-panel {
+  width: 65vw;
+  display: inline-block
 }
 
-/* .left-panel {
-  margin-right: 10px;
-} */
-
 .right-panel {
-  flex: 0 0 35%; 
-  margin-left: 10px; 
+  width: 35vw;
+  display: inline-block
 }
 
 .top-panel {

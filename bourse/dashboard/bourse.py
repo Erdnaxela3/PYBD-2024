@@ -11,14 +11,22 @@ import dash_bootstrap_components as dbc
 
 from dash.dcc import RadioItems
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200", "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"]
+external_stylesheets = [
+    "https://codepen.io/chriddyp/pen/bWLwgP.css",
+    "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
+    "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
+]
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
 # DATABASE_URI = 'timescaledb://ricou:monmdp@localhost:5432/bourse'  # outisde docker
 engine = sqlalchemy.create_engine(DATABASE_URI)
 
-app = dash.Dash(__name__, title="Bourse",
-                suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME] + external_stylesheets)
+app = dash.Dash(
+    __name__,
+    title="Bourse",
+    suppress_callback_exceptions=True,
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME] + external_stylesheets,
+)
 server = app.server
 
 
@@ -49,12 +57,11 @@ def companies_dropdown() -> dcc.Dropdown:
             }
             for _, row in companies_df.iterrows()
         ],
-        placeholder='Select a company...',
+        placeholder="Select a company...",
         value=None,
         multi=True,
-        style={'flex': '1', 'minWidth': '350px'}  # Flex and minimum width
+        style={"flex": "1", "minWidth": "350px"},  # Flex and minimum width
     )
-
 
 
 def period_dropdown() -> dcc.Dropdown:
@@ -76,7 +83,7 @@ def period_dropdown() -> dcc.Dropdown:
         ],
         clearable=False,
         value="1d",
-        style={'flex': '1', 'maxWidth': '60px', 'maxHeight': '50px', 'border': 'none' }  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},  # Flex and minimum width
     )
 
 
@@ -86,10 +93,7 @@ def date_range_picker() -> dcc.DatePickerRange:
 
     :return: dcc.DatePickerRange
     """
-    return dcc.DatePickerRange(
-        id="date-range-picker",
-        style={'minWidth': '100px', 'border': 'none'}
-    )
+    return dcc.DatePickerRange(id="date-range-picker", style={"minWidth": "100px", "border": "none"})
 
 
 def plot_style_dropdown() -> dcc.Dropdown:
@@ -102,26 +106,28 @@ def plot_style_dropdown() -> dcc.Dropdown:
         id="plot-style-dropdown",
         options=[
             {
-            "label": html.Div(
-                [
-                    html.Span(className="material-symbols-outlined", children="candlestick_chart"),
-                    html.Span("Candles"),
-                ], style={'display': 'flex','align-items': 'center'}
-            ),
-            "value": "candlestick",
+                "label": html.Div(
+                    [
+                        html.Span(className="material-symbols-outlined", children="candlestick_chart"),
+                        html.Span("Candles"),
+                    ],
+                    style={"display": "flex", "align-items": "center"},
+                ),
+                "value": "candlestick",
             },
             {
-            "label": html.Div(
-                [
-                    html.Span(className="material-symbols-outlined", children="show_chart"),
-                    html.Span("Line"),
-                ], style={'display': 'flex','align-items': 'center'}
-            ),
-            "value": "line",
+                "label": html.Div(
+                    [
+                        html.Span(className="material-symbols-outlined", children="show_chart"),
+                        html.Span("Line"),
+                    ],
+                    style={"display": "flex", "align-items": "center"},
+                ),
+                "value": "line",
             },
         ],
         value="candlestick",
-        style={'flex': '1', 'maxWidth': '150px', 'border': 'none' }  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "150px", "border": "none"},  # Flex and minimum width
     )
 
 
@@ -138,7 +144,7 @@ def scale_dropdown() -> dcc.RadioItems:
             {"label": "Log", "value": "log"},
         ],
         value="linear",
-        style={'flex': '1', 'minWidth': '20px'}  # Flex and minimum width
+        style={"flex": "1", "minWidth": "20px"},  # Flex and minimum width
     )
 
 
@@ -158,9 +164,10 @@ def indicators_dropdown() -> dcc.Dropdown:
             value=[],
             multi=True,
             clearable=True,
-            style={'flex': '1', 'minWidth': '150px', 'border': 'none'}  # Flex and minimum width
+            style={"flex": "1", "minWidth": "150px", "border": "none"},  # Flex and minimum width
         )
     )
+
 
 # TODO fix deprecated plotly.graph_objects
 def go_candlestick(ohlc_df: pd.DataFrame, name: str) -> go.Candlestick:
@@ -203,7 +210,7 @@ def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
         placeholder="On company",
         clearable=True,
         options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
-        style={'flex': '1', 'minWidth': '200px', 'border': 'none'}  # Flex and minimum width
+        style={"flex": "1", "minWidth": "200px", "border": "none"},  # Flex and minimum width
     )
 
 
@@ -221,14 +228,14 @@ def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
     ],
 )
 def update_selected_companies_plot(
-        selected_values: list[str],
-        period: str,
-        start_date,
-        end_date,
-        plot_style: str,
-        scale: str,
-        indicators: list[str],
-        indicator_stock_cid: str | int | None,
+    selected_values: list[str],
+    period: str,
+    start_date,
+    end_date,
+    plot_style: str,
+    scale: str,
+    indicators: list[str],
+    indicator_stock_cid: str | int | None,
 ) -> go.Figure:
     if selected_values is None or len(selected_values) == 0:
         return go.Figure()
@@ -277,7 +284,7 @@ def update_selected_companies_plot(
         # TODO resample with period use mean
         stocks_df = stocks_df[
             stocks_df["cid"] == float(indicator_stock_cid)
-            ]  # only work when using float, don't know why
+        ]  # only work when using float, don't know why
 
         stocks_df["MA20"] = stocks_df.value.rolling(window=20).mean()
         stocks_df["STD20"] = stocks_df.value.rolling(window=20).std()
@@ -346,28 +353,34 @@ def update_selected_companies_table(selected_values) -> html.Div:
         stocks_df = pd.read_sql(query, engine)
 
         # Generate table content for the current company
-        table_content = html.Div([
-            html.Div([
-                html.Table([
-                    html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
-                    html.Tbody([
-                        html.Tr([html.Td(row[col]) for col in table_columns]) for _, row in stocks_df.iterrows()
-                    ]),
-                ]),
-            ], style={'height': 'calc(100vh - 100px)', 'overflowY': 'auto'})
-        ])
+        table_content = html.Div(
+            [
+                html.Div(
+                    [
+                        html.Table(
+                            [
+                                html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
+                                html.Tbody(
+                                    [
+                                        html.Tr([html.Td(row[col]) for col in table_columns])
+                                        for _, row in stocks_df.iterrows()
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ],
+                    style={"height": "calc(100vh - 100px)", "overflowY": "auto"},
+                )
+            ]
+        )
 
         # Append the table content to the list of tabs content
         tabs_content.append(
-            dcc.Tab(
-                label=f"{company_name}",
-                children=[table_content],
-                value=f"company-{company_id}-tab"
-            )
+            dcc.Tab(label=f"{company_name}", children=[table_content], value=f"company-{company_id}-tab")
         )
 
     # Return tabs content wrapped in a Tabs component
-    return dcc.Tabs(id='tabs', children=tabs_content, value=f"company-{company_id}-tab")
+    return dcc.Tabs(id="tabs", children=tabs_content, value=f"company-{company_id}-tab")
 
 
 @app.callback(
@@ -386,36 +399,48 @@ app.layout = html.Div(
         html.Div(
             [
                 html.Div(
-    [
-        html.Button(
-            html.I(className="fa-solid fa-magnifying-glass"),
-            id="open",
-            n_clicks=0,
-            className="squared-button",
-        ),
-        dbc.Modal(
-            [
-                dbc.ModalHeader(dbc.ModalTitle("Compare symbol")),
-                dbc.ModalBody(companies_dropdown()),
-                dbc.ModalFooter(
-                    dbc.Button(
-                        "Close", id="close", className="ms-auto", n_clicks=0
-                    )
+                    [
+                        html.Button(
+                            html.I(className="fa-solid fa-magnifying-glass"),
+                            id="open",
+                            n_clicks=0,
+                            className="squared-button",
+                        ),
+                        dbc.Modal(
+                            [
+                                dbc.ModalHeader(dbc.ModalTitle("Compare symbol")),
+                                dbc.ModalBody(companies_dropdown()),
+                                dbc.ModalFooter(dbc.Button("Close", id="close", className="ms-auto", n_clicks=0)),
+                            ],
+                            id="modal",
+                            is_open=False,
+                        ),
+                    ]
                 ),
-            ],
-            id="modal",
-            is_open=False,
-        ),
-    ]
-),
                 # companies_dropdown(),
-                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px'}),
-                period_dropdown(),        
-                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px'}),
+                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                period_dropdown(),
+                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
                 plot_style_dropdown(),
-                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px', 'margin': '0 10px 0 0'}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                        "margin": "0 10px 0 0",
+                    },
+                ),
                 date_range_picker(),
-                html.Span("", style={'display': 'inline-block', 'border-left': '2px solid #ccc', 'height': '30px', 'margin': '0 0 0 10px'}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                        "margin": "0 0 0 10px",
+                    },
+                ),
                 indicators_dropdown(),
                 html.Div(id="indicator-stock"),
             ],
@@ -425,8 +450,7 @@ app.layout = html.Div(
             [
                 html.Div(
                     [
-
-                        dcc.Graph(id="selected-companies-plot"),
+                        dcc.Graph(id="selected-companies-plot",style={'height': '80vh'}),
                         scale_dropdown(),
 
                     ],
@@ -439,11 +463,10 @@ app.layout = html.Div(
                     className="panel right-panel",
                 ),
             ],
-            className="container",
+            className="bottom-panel",
         ),
     ]
 )
-
 
 app.css.append_css({"external_url": "./assets/style.css"})
 
