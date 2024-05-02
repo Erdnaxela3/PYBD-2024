@@ -6,17 +6,19 @@ import pandas as pd
 import sqlalchemy
 import plotly.graph_objects as go
 from datetime import date
+from dash import Input, Output, State, html
+import dash_bootstrap_components as dbc
 
 from dash.dcc import RadioItems
 
-# external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css', "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"]
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
 # DATABASE_URI = 'timescaledb://ricou:monmdp@localhost:5432/bourse'  # outisde docker
 engine = sqlalchemy.create_engine(DATABASE_URI)
 
 app = dash.Dash(__name__, title="Bourse",
-                suppress_callback_exceptions=True)  # , external_stylesheets=external_stylesheets)
+                suppress_callback_exceptions=True, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME] + external_stylesheets)
 server = app.server
 
 
@@ -43,7 +45,6 @@ def companies_dropdown() -> dcc.Dropdown:
         options=[
             {
                 "label": f"{row['name']} ({row['symbol']})",
-                # TODO find a better way to keep all the information
                 "value": f"{row['id']}#{row['symbol']}#{row['name']}",
             }
             for _, row in companies_df.iterrows()
@@ -53,6 +54,7 @@ def companies_dropdown() -> dcc.Dropdown:
         multi=True,
         style={'flex': '1', 'minWidth': '350px'}  # Flex and minimum width
     )
+
 
 
 def period_dropdown() -> dcc.Dropdown:
@@ -344,23 +346,64 @@ def update_selected_companies_table(selected_values) -> html.Div:
     # Return tabs content wrapped in a Tabs component
     return dcc.Tabs(id='tabs', children=tabs_content, value=f"company-{company_id}-tab")
 
+
+@app.callback(
+    Output("modal", "is_open"),
+    [Input("open", "n_clicks"), Input("close", "n_clicks")],
+    [State("modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+
 app.layout = html.Div(
     [
         html.Div(
             [
                 html.Div(
+    [
+        html.Button(
+            html.I(className="fa-solid fa-magnifying-glass"),
+            id="open",
+            n_clicks=0,
+            className="squared-button",
+        ),
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Compare symbol")),
+                dbc.ModalBody(companies_dropdown()),
+                dbc.ModalFooter(
+                    dbc.Button(
+                        "Close", id="close", className="ms-auto", n_clicks=0
+                    )
+                ),
+            ],
+            id="modal",
+            is_open=False,
+            # size="xl", 
+            # backdrop=True, 
+            # scrollable=True, 
+            # centered=True,  
+            # keyboard=True, 
+        ),
+    ]
+),
+                # companies_dropdown(),
+                period_dropdown(),
+                date_range_picker(),
+                plot_style_dropdown(),
+                indicators_dropdown(),
+                html.Div(id="indicator-stock"),
+            ],
+            className="top-panel",
+        ),
+        html.Div(
+            [
+                html.Div(
                     [
-                        html.Div(
-                            [
-                                companies_dropdown(),
-                                period_dropdown(),
-                                date_range_picker(),
-                                plot_style_dropdown(),
-                                indicators_dropdown(),
-                                html.Div(id="indicator-stock"),
-                            ],
-                            className="top-panel",
-                        ),
+
                         dcc.Graph(id="selected-companies-plot"),
                         scale_dropdown(),
 

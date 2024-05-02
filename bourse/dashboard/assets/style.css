@@ -3,28 +3,49 @@
   flex-direction: row;
 }
 
+
+/* Styles for the button */
+.squared-button {
+  width: 50px; 
+  height: 50px; 
+  border: none; 
+  background-color: white; 
+  padding: 0; 
+  overflow: hidden; 
+}
+
+/* Styles for the button image */
+.squared-button img {
+  width: 100%; 
+  height: 100%;
+  object-fit: cover;
+}
+
+
 .panel {
   flex: 1;
 }
 
 .left-panel {
-  margin-right: 10px; /* Adjust as needed */
+  margin-right: 10px;
 }
 
 .right-panel {
-  flex: 0 0 35%; /* Set the right panel to take 30% of the available space */
-  margin-left: 10px; /* Adjust as needed */
+  flex: 0 0 35%; 
+  margin-left: 10px; 
 }
 
 .top-panel {
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin-bottom: 10px; /* Adjust as needed */
+  margin-bottom: 10px;
+  border-bottom: 2px solid #ccc;
 }
 
+
 .top-panel > * {
-  margin-right: 10px; /* Adjust as needed */
+  margin-right: 10px; 
 }
 
 table {
