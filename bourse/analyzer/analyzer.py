@@ -84,7 +84,6 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     daystocks["mean"] = grouped['value'].mean()
     daystocks["std"] = grouped["value"].std()
     daystocks['volume'] = grouped["volume"].sum()
-
     return daystocks
 
 
@@ -131,12 +130,15 @@ def process_stocks(unprocessed_stocks: pd.DataFrame) -> pd.DataFrame:
     :param unprocessed_stocks: pd.DataFrame
     :return: pd.DataFrame
     """
-    unprocessed_stocks.drop(columns=["symbol"], inplace=True)
     unprocessed_stocks.rename(columns={"last": "value"}, inplace=True)
     unprocessed_stocks["value"] = unprocessed_stocks["value"].apply(floatify).astype(float)
     
     # TODO handle NV, T... (to discuss: maybe remove the stocks with low std or with very little data)
-
+    std_per_symbol = unprocessed_stocks.groupby([unprocessed_stocks.index.get_level_values('symbol')])['value'].std()
+    symbols_to_remove = std_per_symbol[std_per_symbol <= 0].index
+    unprocessed_stocks = unprocessed_stocks[~unprocessed_stocks['symbol'].isin(symbols_to_remove)]
+    unprocessed_stocks.drop(columns=["symbol"], inplace=True)
+    
     unprocessed_stocks['value'] = unprocessed_stocks.groupby([unprocessed_stocks.index.get_level_values(0), 'symbol'])['value'].mean()
     unprocessed_stocks.drop_duplicates(inplace=True)
 
@@ -191,6 +193,7 @@ def process_companies(stocks: pd.DataFrame):
 
     stocks = stocks.merge(companies_df, left_on='symbol', right_on='symbol') # columns date, value, volume, symbol, id
     stocks.rename(columns={'id': 'cid'}, inplace=True)
+    
 
     stocks.set_index(["date", "cid"], inplace=True)
     stocks.drop(columns=['symbol'], inplace=True)
