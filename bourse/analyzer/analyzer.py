@@ -100,6 +100,19 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
 
     return daystocks
 
+def process_files(files: list[str]) -> pd.DataFrame | None:
+    df_dict = {}
+    for file in files:
+        date = dateutil.parser.parse(".".join(" ".join(file.split()[1:]).split(".")[:-1]))
+        if date in df_dict:
+            df_dict[date] = pd.concat([df_dict[date], pd.read_pickle(file)])
+        else:
+            df_dict[date] = pd.read_pickle(file)
+
+    if df_dict == {}:
+        return None
+    else:
+        return pd.concat(df_dict)
 
 def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     """
@@ -112,21 +125,21 @@ def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     :param files: list[str] list of files to load
     :return: pd.DataFrame index: (date, symbol), columns: value, volume, name
     """
-    df_dict = {}
-    for file in files:
-        if not db.is_file_done(file)[0][0]:
-            date = dateutil.parser.parse(".".join(" ".join(file.split()[1:]).split(".")[:-1]))
-            if date in df_dict:
-                df_dict[date] = pd.concat([df_dict[date], pd.read_pickle(file)])
-            else:
-                df_dict[date] = pd.read_pickle(file)
-        else:
-            files.remove(file)
 
-    if df_dict == {}:
-        return None
+    already_done = db.df_query("SELECT name FROM file_done", chunksize=None)
+    already_done = already_done['name'].tolist()
 
-    df = pd.concat(df_dict)
+    for already_done_file in already_done:
+        if already_done_file in files:
+            files.remove(already_done_file)
+
+    proc_count = max(os.cpu_count() - 1, 1)
+    files_chunks = np.array_split(files, proc_count)
+
+    with Pool(proc_count) as p:
+        dfs = p.map(process_files, files_chunks)
+
+    df = pd.concat(dfs)
 
     df.sort_index(inplace=True)
     df.index.rename("date", level=0, inplace=True)
@@ -154,10 +167,16 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     df_len = len(unprocessed_stocks)
     unprocessed_stocks['value'] = unprocessed_stocks.groupby(['date', 'symbol'])['value'].mean()
     unprocessed_stocks['volume'] = unprocessed_stocks.groupby(['date', 'symbol'])['volume'].mean()
+    logger.log(mylogging.DEBUG, f"Averaging {df_len - len(unprocessed_stocks)} common datapoint from different market.")
+    logger.log(mylogging.DEBUG, f"New len: {len(unprocessed_stocks)}")
 
-    std_per_symbol = unprocessed_stocks.groupby(['date', 'symbol'])['value'].std()
+    # drop date from index to group by symbol
+    unprocessed_stocks.reset_index(inplace=True)
+    unprocessed_stocks.set_index(["symbol"], inplace=True)
+    unprocessed_stocks.sort_index(inplace=True)
+
+    std_per_symbol = unprocessed_stocks.groupby(['symbol'])['value'].std()
     symbols_to_remove = std_per_symbol[std_per_symbol == 0].index
-    logger.log(mylogging.DEBUG, f"Removing {len(symbols_to_remove)} rows with std <= 0.")
 
     unprocessed_stocks.drop(symbols_to_remove, inplace=True)
 
@@ -166,7 +185,7 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     unprocessed_stocks.set_index(["date", "symbol"], inplace=True)
     unprocessed_stocks.sort_index(inplace=True)
 
-    logger.log(mylogging.DEBUG, f"Averaging {df_len - len(unprocessed_stocks)} common datapoint from different market.")
+    logger.log(mylogging.DEBUG, f"Removed {len(symbols_to_remove)} rows with std <= 0.")
 
     df_len = len(unprocessed_stocks)
     max_int_value = 2 ** 31 - 1  # 4 bytes int
@@ -303,7 +322,7 @@ def store_month(year: str, month: str) -> list[str]:
     :param month: str
     :return: list[str] list of files stored
     """
-    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}-0*")
+    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}*")
     logger.log(mylogging.INFO, f"Storing {year} {month}. Found {len(files)} files.")
 
     if len(files) == 0:
@@ -317,6 +336,7 @@ def store_month(year: str, month: str) -> list[str]:
 
     logger.log(mylogging.INFO, f"Loaded {year} {month}, {len(stocks)} rows.")
 
+    logger.log(mylogging.INFO, f"Processing stocks {year} {month}.")
     process_stocks(stocks)
 
     logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
