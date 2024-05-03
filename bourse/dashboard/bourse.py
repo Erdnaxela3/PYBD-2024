@@ -483,17 +483,5 @@ app.layout = html.Div(
         ),
     ]
 )
-
-@app.callback(
-    Output('output', 'children'),
-    [Input('dark-mode-toggle', 'value')]
-)
-def update_output(value):
-    print("=====================")
-    if value == 'dark':
-        return html.Link(rel='stylesheet', href='./assets/style.css')
-    else:
-        return html.Link(rel='stylesheet', href='./assets/style2.css')
-
 if __name__ == "__main__":
     app.run(debug=True)
