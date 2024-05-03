@@ -24,20 +24,21 @@
 }
 
 .left-panel {
-  width: 65vw;
+  width: 64vw;
   display: inline-block
 }
 
 .right-panel {
   width: 35vw;
-  display: inline-block
+  display: inline-block;
+  padding: 10px;
+  border-left: 3px solid #ccc;
 }
 
 .top-panel {
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin-bottom: 10px;
   border-bottom: 3px solid #ccc;
 }
 
@@ -54,6 +55,8 @@ th, td {
 }
 
 th {
+  top:0;
+  position: sticky;
   background-color: #f2f2f2;
   color: #333;
   font-weight: bold;
@@ -61,4 +64,12 @@ th {
 
 tr:hover {
   background-color: #f5f5f5;
+}
+
+.material-symbols-outlined {
+  font-variation-settings:
+  'FILL' 0,
+  'wght' 180,
+  'GRAD' 0,
+  'opsz' 24
 }

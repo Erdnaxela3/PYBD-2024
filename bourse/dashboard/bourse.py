@@ -14,7 +14,7 @@ from dash.dcc import RadioItems
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
-    "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
+    # "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
 ]
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
@@ -83,6 +83,7 @@ def period_dropdown() -> dcc.Dropdown:
         ],
         clearable=False,
         value="1d",
+        maxHeight=300,
         style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},  # Flex and minimum width
     )
 
@@ -127,24 +128,26 @@ def plot_style_dropdown() -> dcc.Dropdown:
             },
         ],
         value="candlestick",
-        style={"flex": "1", "maxWidth": "150px", "border": "none"},  # Flex and minimum width
+        clearable=False,
+        style={"flex": "1", "maxWidth": "120px", "border": "none"},  # Flex and minimum width
     )
 
 
-def scale_dropdown() -> dcc.RadioItems:
+def scale_dropdown() -> dcc.Dropdown:
     """
     Dropdown to select the scale: linear, log...
 
     :return: dcc.Dropdown
     """
-    return dcc.RadioItems(
+    return dcc.Dropdown(
         id="scale-dropdown",
         options=[
             {"label": "Linear", "value": "linear"},
             {"label": "Log", "value": "log"},
         ],
         value="linear",
-        style={"flex": "1", "minWidth": "20px"},  # Flex and minimum width
+        clearable=False,
+        style={"flex": "1","maxWidth": "120px", "border": "none"},  # Flex and minimum width
     )
 
 
@@ -369,7 +372,7 @@ def update_selected_companies_table(selected_values) -> html.Div:
                             ]
                         ),
                     ],
-                    style={"height": "calc(100vh - 100px)", "overflowY": "auto"},
+                    style={"height": "85vh", "overflowY": "auto"},
                 )
             ]
         )
@@ -405,6 +408,16 @@ def update_dropdown_options(n_clicks):
     ]
     return options
 
+@app.callback(
+    Output("date_modal", "is_open"),
+    [Input("date_open", "n_clicks"), Input("date_close", "n_clicks")],
+    [State("date_modal", "is_open")],
+)
+def date_toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
 app.layout = html.Div(
     [
         html.Div(
@@ -414,6 +427,7 @@ app.layout = html.Div(
                     id="update-button",
                     className="squared-button",
                 ),
+                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
                 html.Div(
                     [
                         html.Button(
@@ -433,28 +447,46 @@ app.layout = html.Div(
                         ),
                     ]
                 ),
-                # companies_dropdown(),
                 html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
                 period_dropdown(),
                 html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
                 plot_style_dropdown(),
+                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                scale_dropdown(),
                 html.Span(
                     "",
                     style={
                         "display": "inline-block",
                         "border-left": "2px solid #ccc",
                         "height": "30px",
-                        "margin": "0 10px 0 0",
                     },
                 ),
-                date_range_picker(),
+                html.Div(
+                    [
+                        html.Button(
+                            html.I(className="fa-regular fa-calendar"),
+                            id="date_open",
+                            n_clicks=0,
+                            className="squared-button",
+                        ),
+                        dbc.Modal(
+                            [
+                                dbc.ModalHeader(dbc.ModalTitle("Choose period")),
+                                dbc.ModalBody(date_range_picker()),
+                                dbc.ModalFooter(dbc.Button("Close", id="date_close", className="ms-auto", n_clicks=0)),
+                            ],
+                            id="date_modal",
+                            is_open=False,
+                        ),
+                    ]
+                ),
+                # date_range_picker(),
                 html.Span(
                     "",
                     style={
                         "display": "inline-block",
                         "border-left": "2px solid #ccc",
                         "height": "30px",
-                        "margin": "0 0 0 10px",
                     },
                 ),
                 indicators_dropdown(),
@@ -467,8 +499,6 @@ app.layout = html.Div(
                 html.Div(
                     [
                         dcc.Graph(id="selected-companies-plot",style={'height': '80vh'}),
-                        scale_dropdown(),
-
                     ],
                     className="panel left-panel",
                 ),
