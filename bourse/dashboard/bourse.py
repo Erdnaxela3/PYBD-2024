@@ -393,11 +393,23 @@ def toggle_modal(n1, n2, is_open):
         return not is_open
     return is_open
 
+@app.callback(
+    ddep.Output('companies-dropdown', 'options'),
+    [ddep.Input('update-button', 'n_clicks')]
+)
+def update_dropdown_options(n_clicks):
+    companies_df = get_companies()
+    options = [
+        {'label': f"{row['name']} ({row['symbol']})", 'value': f"{row['id']}#{row['symbol']}#{row['name']}"}
+        for _, row in companies_df.iterrows()
+    ]
+    return options
 
 app.layout = html.Div(
     [
         html.Div(
             [
+                html.Button("Refresh Companies", id="update-button"),
                 html.Div(
                     [
                         html.Button(
