@@ -147,7 +147,7 @@ def scale_dropdown() -> dcc.Dropdown:
         ],
         value="linear",
         clearable=False,
-        style={"flex": "1","maxWidth": "120px", "border": "none"},  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "120px", "border": "none"},  # Flex and minimum width
     )
 
 
@@ -231,14 +231,14 @@ def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
     ],
 )
 def update_selected_companies_plot(
-    selected_values: list[str],
-    period: str,
-    start_date,
-    end_date,
-    plot_style: str,
-    scale: str,
-    indicators: list[str],
-    indicator_stock_cid: str | int | None,
+        selected_values: list[str],
+        period: str,
+        start_date,
+        end_date,
+        plot_style: str,
+        scale: str,
+        indicators: list[str],
+        indicator_stock_cid: str | int | None,
 ) -> go.Figure:
     if selected_values is None or len(selected_values) == 0:
         return go.Figure()
@@ -323,26 +323,46 @@ def update_selected_companies_plot(
     elif scale == "linear":
         pass
 
+    rangebreaks = []
+    if period not in ["1w", "1m", "1y"]:
+        # choosing a period that is bigger than a day can result in a "datapoint" that start a weekend day
+        rangebreaks.append({'pattern': 'day of week', 'bounds': [6, 1]})
+    if period in ["10min", "1h"]:
+        # choosing a period bigger than an hour result in datapoint starting a 00:00am, that would be removed
+        rangebreaks.append({'pattern': 'hour', 'bounds': [18, 9]})
+
+    fig.update_xaxes(
+        rangebreaks=rangebreaks,
+    )
+
     return fig
 
+def format_table_cell(value: any, column_name: str) -> str:
+    if column_name == "date":
+        return value.strftime("%Y-%m-%d")
+    if column_name in ["low", "high", "open", "close", "mean", "std"]:
+        return f"{value:.2f}"
+    else:
+        return value
 
 @app.callback(
     ddep.Output("selected-companies-table", "children"),
     [
         ddep.Input("companies-dropdown", "value"),
+        ddep.Input("date-range-picker", "start_date"),
+        ddep.Input("date-range-picker", "end_date"),
     ],
 )
-def update_selected_companies_table(selected_values) -> html.Div:
+def update_selected_companies_table(selected_values, start_date, end_date) -> html.Div:
     if selected_values is None or len(selected_values) == 0:
         return html.Div()
 
     # TODO find a better way to keep all the information
     selected_cids = [int(cid.split("#")[0]) for cid in selected_values]
 
-    query = f"SELECT * FROM daystocks WHERE cid IN ({', '.join(map(str, selected_cids))})"
-    stocks_df = pd.read_sql(query, engine)
+    start_date = start_date or date(1970, 1, 1)
+    end_date = end_date or date(2100, 1, 1)
 
-    # TODO add mean, std, volume when they are added in analyzer
     table_columns = ["date", "low", "high", "open", "close", "mean", "std", "volume"]
 
     tabs_content = []
@@ -352,7 +372,11 @@ def update_selected_companies_table(selected_values) -> html.Div:
         company_id, _, company_name = selected_company.split("#")
 
         # Query data for the current company
-        query = f"SELECT * FROM daystocks WHERE cid = {company_id}"
+        query = f"SELECT * FROM daystocks"\
+                f" WHERE cid = {company_id}"\
+                f" AND date BETWEEN '{start_date}'"\
+                f" AND '{end_date}'"\
+                " ORDER BY date"
         stocks_df = pd.read_sql(query, engine)
 
         # Generate table content for the current company
@@ -365,7 +389,7 @@ def update_selected_companies_table(selected_values) -> html.Div:
                                 html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
                                 html.Tbody(
                                     [
-                                        html.Tr([html.Td(row[col]) for col in table_columns])
+                                        html.Tr([html.Td(format_table_cell(row[col], col)) for col in table_columns])
                                         for _, row in stocks_df.iterrows()
                                     ]
                                 ),
@@ -396,6 +420,7 @@ def toggle_modal(n1, n2, is_open):
         return not is_open
     return is_open
 
+
 @app.callback(
     ddep.Output('companies-dropdown', 'options'),
     [ddep.Input('update-button', 'n_clicks')]
@@ -408,6 +433,7 @@ def update_dropdown_options(n_clicks):
     ]
     return options
 
+
 @app.callback(
     Output("date_modal", "is_open"),
     [Input("date_open", "n_clicks"), Input("date_close", "n_clicks")],
@@ -417,6 +443,7 @@ def date_toggle_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
+
 
 app.layout = html.Div(
     [
@@ -498,7 +525,7 @@ app.layout = html.Div(
             [
                 html.Div(
                     [
-                        dcc.Graph(id="selected-companies-plot",style={'height': '80vh'}),
+                        dcc.Graph(id="selected-companies-plot", style={'height': '80vh'}),
                     ],
                     className="panel left-panel",
                 ),
