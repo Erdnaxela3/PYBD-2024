@@ -409,7 +409,11 @@ app.layout = html.Div(
     [
         html.Div(
             [
-                html.Button("Refresh Companies", id="update-button"),
+                html.Button(
+                    html.I(className="fa-solid fa-arrows-rotate"),
+                    id="update-button",
+                    className="squared-button",
+                ),
                 html.Div(
                     [
                         html.Button(
@@ -480,7 +484,16 @@ app.layout = html.Div(
     ]
 )
 
-app.css.append_css({"external_url": "./assets/style.css"})
+@app.callback(
+    Output('output', 'children'),
+    [Input('dark-mode-toggle', 'value')]
+)
+def update_output(value):
+    print("=====================")
+    if value == 'dark':
+        return html.Link(rel='stylesheet', href='./assets/style.css')
+    else:
+        return html.Link(rel='stylesheet', href='./assets/style2.css')
 
 if __name__ == "__main__":
     app.run(debug=True)
