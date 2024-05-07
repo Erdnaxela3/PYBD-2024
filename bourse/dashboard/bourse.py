@@ -5,9 +5,13 @@ import dash.dependencies as ddep
 import pandas as pd
 import sqlalchemy
 import plotly.graph_objects as go
+import plotly.io as pio
 from datetime import date
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html,  Patch, clientside_callback
 import dash_bootstrap_components as dbc
+import dash_daq as daq
+from dash_bootstrap_templates import load_figure_template
+
 
 from dash.dcc import RadioItems
 
@@ -16,6 +20,8 @@ external_stylesheets = [
     "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
     # "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
 ]
+
+load_figure_template(["minty", "minty_dark"])
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
 # DATABASE_URI = 'timescaledb://ricou:monmdp@localhost:5432/bourse'  # outisde docker
@@ -87,7 +93,6 @@ def period_dropdown() -> dcc.Dropdown:
         style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},  # Flex and minimum width
     )
 
-
 def date_range_picker() -> dcc.DatePickerRange:
     """
     Date range picker to select the date range to display.
@@ -112,7 +117,8 @@ def plot_style_dropdown() -> dcc.Dropdown:
                         html.Span(className="material-symbols-outlined", children="candlestick_chart"),
                         html.Span("Candles"),
                     ],
-                    style={"display": "flex", "align-items": "center"},
+                    id="candle-option",
+                    className="dropdown-option",
                 ),
                 "value": "candlestick",
             },
@@ -122,7 +128,8 @@ def plot_style_dropdown() -> dcc.Dropdown:
                         html.Span(className="material-symbols-outlined", children="show_chart"),
                         html.Span("Line"),
                     ],
-                    style={"display": "flex", "align-items": "center"},
+                    id="line-option",
+                    className="dropdown-option",
                 ),
                 "value": "line",
             },
@@ -202,9 +209,10 @@ def go_line(stocks_df: pd.DataFrame, cid: float, name: str) -> go.Line:
     ddep.Output("indicator-stock", "children"),
     [
         ddep.Input("companies-dropdown", "value"),
+        ddep.Input("darktheme-daq-booleanswitch", "on"),
     ],
 )
-def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
+def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | None:
     if selected_companies is None or len(selected_companies) == 0:
         return None
 
@@ -213,6 +221,7 @@ def stock_used_for_indicator(selected_companies) -> dcc.Dropdown | None:
         placeholder="On company",
         clearable=True,
         options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
+        className = "drop-down-dark" if dark_mode else "drop-down",
         style={"flex": "1", "minWidth": "200px", "border": "none"},  # Flex and minimum width
     )
 
@@ -351,9 +360,10 @@ def format_table_cell(value: any, column_name: str) -> str:
         ddep.Input("companies-dropdown", "value"),
         ddep.Input("date-range-picker", "start_date"),
         ddep.Input("date-range-picker", "end_date"),
+        ddep.Input("darktheme-daq-booleanswitch", "on"),
     ],
 )
-def update_selected_companies_table(selected_values, start_date, end_date) -> html.Div:
+def update_selected_companies_table(selected_values, start_date, end_date, dark_mode) -> html.Div:
     if selected_values is None or len(selected_values) == 0:
         return html.Div()
 
@@ -386,7 +396,11 @@ def update_selected_companies_table(selected_values, start_date, end_date) -> ht
                     [
                         html.Table(
                             [
-                                html.Thead([html.Tr([html.Th(col) for col in table_columns])]),
+                                html.Tr(
+                                    [
+                                        html.Th(col, className="th-dark" if dark_mode else "") for col in table_columns
+                                    ]
+                                ),
                                 html.Tbody(
                                     [
                                         html.Tr([html.Td(format_table_cell(row[col], col)) for col in table_columns])
@@ -403,7 +417,7 @@ def update_selected_companies_table(selected_values, start_date, end_date) -> ht
 
         # Append the table content to the list of tabs content
         tabs_content.append(
-            dcc.Tab(label=f"{company_name}", children=[table_content], value=f"company-{company_id}-tab")
+            dcc.Tab(label=f"{company_name}", className="dark-tabs" if dark_mode else "", children=[table_content], value=f"company-{company_id}-tab")
         )
 
     # Return tabs content wrapped in a Tabs component
@@ -444,11 +458,45 @@ def date_toggle_modal(n1, n2, is_open):
         return not is_open
     return is_open
 
+@app.callback(
+    Output("top-panel", "className"),  # Update the class name of the top panel
+    Output("bottom-panel", "className"),
+    Output("open", "className"),
+    Output("date_open", "className"),
+    Output("update-button", "className"),
+    Output("left-panel", "className"),
+    Output("right-panel", "className"),
+    Output("period-dropdown", "className"),
+    Output("plot-style-dropdown", "className"),
+    Output("scale-dropdown", "className"),
+    Output("indicators-dropdown", "className"),
+    Output("candle-option", "className"),
+    Output("line-option", "className"),
+    Output("companies-dropdown", "className"),
+    Output("modal", "className"),
+    Output("date_modal", "className"),
+    Output("selected-companies-table", "className"),
+    Output("date-range-picker", "className"),
+    [Input("darktheme-daq-booleanswitch", "on")]
+)
+def dark_mode_style(switch_state):
+    if switch_state:
+        return "top-panel-dark", "bottom-panel-dark", "squared-button-dark", "squared-button-dark", "squared-button-dark", "panel left-panel-dark", "panel right-panel-dark", "drop-down-dark","drop-down-dark","drop-down-dark", "drop-down-dark", "drop-down-dark", "drop-down-dark", "companies-dropdown-dark", "modal-dark", "modal-dark", "table-content-dark", "dark-mode-date-picker"
+    else:
+        return "top-panel", "bottom-panel", "squared-button", "squared-button", "squared-button", "panel left-panel", "panel right-panel", "drop-down","drop-down","drop-down", "drop-down", "drop-down", "drop-down", "companies-dropdown", "", "", "", ""
+
 
 app.layout = html.Div(
     [
         html.Div(
             [
+                 daq.BooleanSwitch(
+                    on=False,
+                    id="darktheme-daq-booleanswitch",
+                    className="dark-theme-control",
+                
+                    color="purple",
+                ),
                 html.Button(
                     html.I(className="fa-solid fa-arrows-rotate"),
                     id="update-button",
@@ -488,6 +536,8 @@ app.layout = html.Div(
                         "height": "30px",
                     },
                 ),
+                
+                
                 html.Div(
                     [
                         html.Button(
@@ -519,6 +569,7 @@ app.layout = html.Div(
                 indicators_dropdown(),
                 html.Div(id="indicator-stock"),
             ],
+            id="top-panel",  # Added an ID for easier targeting in callback
             className="top-panel",
         ),
         html.Div(
@@ -527,18 +578,25 @@ app.layout = html.Div(
                     [
                         dcc.Graph(id="selected-companies-plot", style={'height': '80vh'}),
                     ],
+                    id="left-panel",
                     className="panel left-panel",
                 ),
                 html.Div(
                     [
                         html.Div(id="selected-companies-table"),
                     ],
+                    id="right-panel",
                     className="panel right-panel",
                 ),
             ],
+            id="bottom-panel",  # Added an ID for easier targeting in callback
             className="bottom-panel",
         ),
-    ]
+        
+    ],
 )
+
+app.css.append_css({"external_url": "./assets/style.css"})
+
 if __name__ == "__main__":
     app.run(debug=True)

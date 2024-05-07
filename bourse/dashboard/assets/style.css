@@ -62,6 +62,14 @@ th {
   font-weight: bold;
 }
 
+.th-dark{
+  top:0;
+  position: sticky;
+  background-color: grey;
+  color: white;
+  font-weight: bold;
+}
+
 tr:hover {
   background-color: #f5f5f5;
 }
@@ -72,4 +80,128 @@ tr:hover {
   'wght' 180,
   'GRAD' 0,
   'opsz' 24
+}
+
+.top-panel-dark {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  border-bottom: 3px solid #ccc;
+  background-color: #282828;
+}
+
+.bottom-panel-dark {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  background-color: #3f3f3f;
+  color: white;
+}
+
+.squared-button-dark {
+  width: 50px; 
+  height: 50px; 
+  border: none; 
+  background-color: #282828; 
+  padding: 0; 
+  overflow: hidden; 
+  color: white;
+}
+
+.left-panel-dark {
+  width: 64vw;
+  display: inline-block;
+  background-color: #3f3f3f;
+}
+
+.right-panel-dark {
+  width: 35vw;
+  display: inline-block;
+  padding: 10px;
+  border-left: 3px solid #ccc;
+  background-color: #3f3f3f;
+}
+
+.drop-down {
+  flex: "1";
+  max-width: "60px";
+  max-height: "50px";
+  border: "none";
+}
+
+.drop-down .Select-control{
+  background-color: white !important;
+}
+
+.drop-down .Select-value-label {
+color: black !important;
+}
+
+.drop-down .Select-menu-outer {
+background-color: white;
+color: black;
+}
+
+.drop-down-dark .Select-control{
+  background-color: #282828;
+}
+
+.drop-down-dark .Select-value-label {
+  color: white !important;
+}
+
+.drop-down-dark .Select-menu-outer {
+  background-color: #282828;
+  color: white;
+}
+
+.companies-dropdown {
+  flex: "1";
+  min-width: "350px";
+}
+
+.companies-dropdown .Select-control{
+  background-color: white !important;
+  color: black
+}
+
+.companies-dropdown .Select-menu-outer{
+  background-color: white;
+  color: black
+}
+
+.companies-dropdodwn .Select-value-label{
+ color: black !important;
+}
+
+.Select-control {
+  background-color: #282828 !important;
+  color:white;
+}  
+
+.Select-menu-outer {
+  background-color: #282828;
+  color: white;
+}    
+
+.modal-dark .modal-content {
+  background-color: #282828;
+  color: white;
+}
+
+.table-content-dark {
+  background-color: #3f3f3f;;
+  color: white;
+}
+
+.dark-tabs {
+  background-color: #282828 !important;
+  color: white !important;
+  text-align: center;
+}
+
+.dark-mode-date-picker input {
+  background-color: #282828;
+  color: #fff;
 }

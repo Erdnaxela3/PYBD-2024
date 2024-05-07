@@ -7,6 +7,7 @@ plotly
 kaleido
 dash
 dash-bootstrap-components
+dash_bootstrap_templates
 dash-ag-grid
 dash_daq
 gunicorn
