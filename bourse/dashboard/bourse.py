@@ -117,7 +117,7 @@ def plot_style_dropdown() -> dcc.Dropdown:
                         html.Span("Candles"),
                     ],
                     id="candle-option",
-                    className="dropdown-option",
+                    style={"display": "flex", "align-items": "center"},
                 ),
                 "value": "candlestick",
             },
@@ -128,7 +128,7 @@ def plot_style_dropdown() -> dcc.Dropdown:
                         html.Span("Line"),
                     ],
                     id="line-option",
-                    className="dropdown-option",
+                    style={"display": "flex", "align-items": "center"},
                 ),
                 "value": "line",
             },
@@ -220,7 +220,7 @@ def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | No
         placeholder="On company",
         clearable=True,
         options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
-        className = "drop-down-dark" if dark_mode else "drop-down",
+        className = "dropdown-dark" if dark_mode else "dropdown",
         style={"flex": "1", "minWidth": "200px", "border": "none"},  # Flex and minimum width
     )
 
@@ -486,9 +486,9 @@ def date_toggle_modal(n1, n2, is_open):
 )
 def dark_mode_style(switch_state):
     if switch_state:
-        return "top-panel-dark", "bottom-panel-dark", "squared-button-dark", "squared-button-dark", "squared-button-dark", "panel left-panel-dark", "panel right-panel-dark", "drop-down-dark","drop-down-dark","drop-down-dark", "drop-down-dark", "drop-down-dark", "drop-down-dark", "companies-dropdown-dark", "modal-dark", "modal-dark", "table-content-dark", "dark-mode-date-picker"
+        return "top-panel-dark", "bottom-panel-dark", "squared-button-dark", "squared-button-dark", "squared-button-dark", "panel left-panel-dark", "panel right-panel-dark", "dropdown-dark","dropdown-dark","dropdown-dark", "dropdown-dark", "dropdown-dark", "dropdown-dark", "companies-dropdown-dark", "modal-dark", "modal-dark", "table-content-dark", "dark-mode-date-picker"
     else:
-        return "top-panel", "bottom-panel", "squared-button", "squared-button", "squared-button", "panel left-panel", "panel right-panel", "drop-down","drop-down","drop-down", "drop-down", "drop-down", "drop-down", "companies-dropdown", "", "", "", ""
+        return "top-panel", "bottom-panel", "squared-button", "squared-button", "squared-button", "panel left-panel", "panel right-panel", "dropdown","dropdown","dropdown", "dropdown", "dropdown", "dropdown", "companies-dropdown", "", "", "", ""
 
 app.layout = html.Div(
     [
