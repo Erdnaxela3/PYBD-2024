@@ -7,10 +7,9 @@ import sqlalchemy
 import plotly.graph_objects as go
 import plotly.io as pio
 from datetime import date
-from dash import Input, Output, State, html,  Patch, clientside_callback
+from dash import Input, Output, State, html
 import dash_bootstrap_components as dbc
 import dash_daq as daq
-from dash_bootstrap_templates import load_figure_template
 
 
 from dash.dcc import RadioItems
@@ -21,7 +20,7 @@ external_stylesheets = [
     # "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
 ]
 
-load_figure_template(["minty", "minty_dark"])
+theme_name = "plotly"
 
 DATABASE_URI = "timescaledb://ricou:monmdp@db:5432/bourse"  # inside docker
 # DATABASE_URI = 'timescaledb://ricou:monmdp@localhost:5432/bourse'  # outisde docker
@@ -237,6 +236,7 @@ def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | No
         ddep.Input("scale-dropdown", "value"),
         ddep.Input("indicators-dropdown", "value"),
         ddep.Input("indicator-stock-cid", "value"),
+        ddep.Input("darktheme-daq-booleanswitch", "on"),
     ],
 )
 def update_selected_companies_plot(
@@ -248,9 +248,13 @@ def update_selected_companies_plot(
         scale: str,
         indicators: list[str],
         indicator_stock_cid: str | int | None,
+        dark_mode_on,
 ) -> go.Figure:
+    template_name = theme_name + "_dark" if dark_mode_on else theme_name
     if selected_values is None or len(selected_values) == 0:
-        return go.Figure()
+        fig = go.Figure()
+        fig.update_layout(template=template_name)
+        return fig
 
     start_date = start_date or date(1970, 1, 1)
     end_date = end_date or date(2100, 1, 1)
@@ -326,6 +330,7 @@ def update_selected_companies_plot(
     fig = go.Figure(
         data=graph_figure_data,
     )
+    fig.update_layout(template=template_name)
 
     if scale == "log":
         fig.update_yaxes(type="log")
@@ -459,7 +464,7 @@ def date_toggle_modal(n1, n2, is_open):
     return is_open
 
 @app.callback(
-    Output("top-panel", "className"),  # Update the class name of the top panel
+    Output("top-panel", "className"),
     Output("bottom-panel", "className"),
     Output("open", "className"),
     Output("date_open", "className"),
@@ -484,7 +489,6 @@ def dark_mode_style(switch_state):
         return "top-panel-dark", "bottom-panel-dark", "squared-button-dark", "squared-button-dark", "squared-button-dark", "panel left-panel-dark", "panel right-panel-dark", "drop-down-dark","drop-down-dark","drop-down-dark", "drop-down-dark", "drop-down-dark", "drop-down-dark", "companies-dropdown-dark", "modal-dark", "modal-dark", "table-content-dark", "dark-mode-date-picker"
     else:
         return "top-panel", "bottom-panel", "squared-button", "squared-button", "squared-button", "panel left-panel", "panel right-panel", "drop-down","drop-down","drop-down", "drop-down", "drop-down", "drop-down", "companies-dropdown", "", "", "", ""
-
 
 app.layout = html.Div(
     [
@@ -569,14 +573,14 @@ app.layout = html.Div(
                 indicators_dropdown(),
                 html.Div(id="indicator-stock"),
             ],
-            id="top-panel",  # Added an ID for easier targeting in callback
+            id="top-panel",  
             className="top-panel",
         ),
         html.Div(
             [
                 html.Div(
                     [
-                        dcc.Graph(id="selected-companies-plot", style={'height': '80vh'}),
+                        dcc.Graph(id="selected-companies-plot", style={'height': '80vh'})
                     ],
                     id="left-panel",
                     className="panel left-panel",
@@ -589,7 +593,7 @@ app.layout = html.Div(
                     className="panel right-panel",
                 ),
             ],
-            id="bottom-panel",  # Added an ID for easier targeting in callback
+            id="bottom-panel",  
             className="bottom-panel",
         ),
         
