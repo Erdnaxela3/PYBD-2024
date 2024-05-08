@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  height: 94.5vh;
   margin: 0;
 }
 
@@ -24,7 +25,7 @@ style={"display": "flex", "align-items": "center"}
 }
 
 .left-panel {
-  width: 64vw;
+  width: 65vw;
   display: inline-block
 }
 
@@ -65,7 +66,7 @@ th {
 .th-dark{
   top:0;
   position: sticky;
-  background-color: grey;
+  background-color: #282828;
   color: white;
   font-weight: bold;
 }
@@ -94,6 +95,7 @@ tr:hover {
   display: flex;
   flex-direction: row;
   align-items: center;
+  height: 94.5vh;
   margin: 0;
   background-color: #3f3f3f;
   color: white;
@@ -110,7 +112,7 @@ tr:hover {
 }
 
 .left-panel-dark {
-  width: 64vw;
+  width: 65vw;
   display: inline-block;
   background-color: #3f3f3f;
 }

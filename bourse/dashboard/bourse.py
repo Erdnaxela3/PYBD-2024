@@ -17,7 +17,6 @@ from dash.dcc import RadioItems
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
-    # "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0",
 ]
 
 theme_name = "plotly"
@@ -65,7 +64,7 @@ def companies_dropdown() -> dcc.Dropdown:
         placeholder="Select a company...",
         value=None,
         multi=True,
-        style={"flex": "1", "minWidth": "350px"},  # Flex and minimum width
+        style={"flex": "1", "minWidth": "350px"},
     )
 
 
@@ -78,7 +77,6 @@ def period_dropdown() -> dcc.Dropdown:
     return dcc.Dropdown(
         id="period-dropdown",
         options=[
-            # TODO check 10min, nothing is displayed when chosen
             {"label": "10m", "value": "10min"},
             {"label": "1h", "value": "1h"},
             {"label": "1d", "value": "1d"},
@@ -89,7 +87,7 @@ def period_dropdown() -> dcc.Dropdown:
         clearable=False,
         value="1d",
         maxHeight=300,
-        style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},
     )
 
 def date_range_picker() -> dcc.DatePickerRange:
@@ -135,7 +133,7 @@ def plot_style_dropdown() -> dcc.Dropdown:
         ],
         value="candlestick",
         clearable=False,
-        style={"flex": "1", "maxWidth": "120px", "border": "none"},  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "120px", "border": "none"},
     )
 
 
@@ -153,7 +151,7 @@ def scale_dropdown() -> dcc.Dropdown:
         ],
         value="linear",
         clearable=False,
-        style={"flex": "1", "maxWidth": "120px", "border": "none"},  # Flex and minimum width
+        style={"flex": "1", "maxWidth": "120px", "border": "none"},
     )
 
 
@@ -173,12 +171,11 @@ def indicators_dropdown() -> dcc.Dropdown:
             value=[],
             multi=True,
             clearable=True,
-            style={"flex": "1", "minWidth": "150px", "border": "none"},  # Flex and minimum width
+            style={"flex": "1", "minWidth": "150px", "border": "none"},
         )
     )
 
 
-# TODO fix deprecated plotly.graph_objects
 def go_candlestick(ohlc_df: pd.DataFrame, name: str) -> go.Candlestick:
     candlestick = go.Candlestick(
         x=ohlc_df.index,
@@ -221,7 +218,7 @@ def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | No
         clearable=True,
         options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
         className = "dropdown-dark" if dark_mode else "dropdown",
-        style={"flex": "1", "minWidth": "200px", "border": "none"},  # Flex and minimum width
+        style={"flex": "1", "minWidth": "200px", "border": "none"},
     )
 
 
@@ -259,7 +256,6 @@ def update_selected_companies_plot(
     start_date = start_date or date(1970, 1, 1)
     end_date = end_date or date(2100, 1, 1)
 
-    # TODO find a better way to keep all the information
     selected_cids = [int(cid.split("#")[0]) for cid in selected_values]
 
     query = (
@@ -291,13 +287,11 @@ def update_selected_companies_plot(
 
             graph_figure_data.append(go_candlestick(ohlc_df, name))
     elif plot_style == "line":
-        # TODO resample with period use mean
         for info in selected_values:
             cid, _, name = info.split("#")
             graph_figure_data.append(go_line(stocks_df, float(cid), name))
 
     if "bollinger-bands" in indicators and indicator_stock_cid is not None:
-        # TODO resample with period use mean
         stocks_df = stocks_df[
             stocks_df["cid"] == float(indicator_stock_cid)
         ]  # only work when using float, don't know why
@@ -372,7 +366,6 @@ def update_selected_companies_table(selected_values, start_date, end_date, dark_
     if selected_values is None or len(selected_values) == 0:
         return html.Div()
 
-    # TODO find a better way to keep all the information
     selected_cids = [int(cid.split("#")[0]) for cid in selected_values]
 
     start_date = start_date or date(1970, 1, 1)
@@ -415,7 +408,7 @@ def update_selected_companies_table(selected_values, start_date, end_date, dark_
                             ]
                         ),
                     ],
-                    style={"height": "85vh", "overflowY": "auto"},
+                    style={"width": "67vh", "height": "85vh", "overflowY": "auto"},
                 )
             ]
         )
@@ -561,7 +554,6 @@ app.layout = html.Div(
                         ),
                     ]
                 ),
-                # date_range_picker(),
                 html.Span(
                     "",
                     style={
