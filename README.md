@@ -56,4 +56,4 @@ docker-compose up
 
 ## Utilisation
 
-# TODO: Ajouter les instructions pour lancer le programme
+![alt text](https://github.com/Erdnaxela3/PYBD-2024/blob/main/frontend_instructions.png)
