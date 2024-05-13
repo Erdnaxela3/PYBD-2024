@@ -1,16 +1,15 @@
-import pandas as pd
-import numpy as np
-import sklearn
-import re
 import glob
-import dateutil
 import os
-import mylogging
-
+import re
 from multiprocessing import Pool
-import sqlalchemy
-import psycopg2
 
+import dateutil
+import mylogging
+import numpy as np
+import pandas as pd
+import psycopg2
+import sklearn
+import sqlalchemy
 import timescaledb_model as tsdb
 
 logger = mylogging.getLogger("analyzer", level=mylogging.DEBUG)
@@ -51,7 +50,10 @@ def compute_volume_diff(stocks: pd.DataFrame):
     :param stocks: pd.DataFrame (date, symbol, value, volume, name)
     """
     stocks["volume_diff"] = stocks.groupby(
-        [stocks.index.get_level_values("symbol"), stocks.index.get_level_values("date").date]
+        [
+            stocks.index.get_level_values("symbol"),
+            stocks.index.get_level_values("date").date,
+        ]
     )["volume"].diff()
     stocks.fillna({"volume_diff": stocks.volume}, inplace=True)
 
@@ -81,29 +83,39 @@ def compute_daystocks(stocks: pd.DataFrame) -> pd.DataFrame:
     :param stocks: pd.DataFrame with indexes: ('date', 'cid') and columns: (value', 'volume')
     :return: pd.DataFrame with ('date', 'cid'), 'open', 'close', 'high', 'low', 'volume', 'mean', 'std'
     """
-    grouped = stocks.groupby([stocks.index.get_level_values("cid"), stocks.index.get_level_values("date").date])
+    grouped = stocks.groupby(
+        [
+            stocks.index.get_level_values("cid"),
+            stocks.index.get_level_values("date").date,
+        ]
+    )
     daystocks = grouped["value"].ohlc()
 
     # second index date loses its name, need to reset it
     daystocks.index.rename("date", level=1, inplace=True)
 
-    daystocks["mean"] = grouped['value'].mean()
+    daystocks["mean"] = grouped["value"].mean()
     daystocks["std"] = grouped["value"].std()
-    daystocks['volume'] = grouped["volume"].sum()
+    daystocks["volume"] = grouped["volume"].sum()
 
-    max_int_value = 2 ** 31 - 1  # 4 bytes int
-    daystocks['volume'] = np.where(daystocks['volume'] > max_int_value, -1, daystocks['volume'])
+    max_int_value = 2**31 - 1  # 4 bytes int
+    daystocks["volume"] = np.where(
+        daystocks["volume"] > max_int_value, -1, daystocks["volume"]
+    )
 
     # log max volume
-    max_volume = daystocks['volume'].max()
+    max_volume = daystocks["volume"].max()
     logger.log(mylogging.DEBUG, f"Max volume: {max_volume}")
 
     return daystocks
 
+
 def process_files(files: list[str]) -> pd.DataFrame | None:
     df_dict = {}
     for file in files:
-        date = dateutil.parser.parse(".".join(" ".join(file.split()[1:]).split(".")[:-1]))
+        date = dateutil.parser.parse(
+            ".".join(" ".join(file.split()[1:]).split(".")[:-1])
+        )
         if date in df_dict:
             df_dict[date] = pd.concat([df_dict[date], pd.read_pickle(file)])
         else:
@@ -113,6 +125,7 @@ def process_files(files: list[str]) -> pd.DataFrame | None:
         return None
     else:
         return pd.concat(df_dict)
+
 
 def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     """
@@ -127,7 +140,7 @@ def load_df_from_files(files: list[str]) -> pd.DataFrame | None:
     """
 
     already_done = db.df_query("SELECT name FROM file_done", chunksize=None)
-    already_done = already_done['name'].tolist()
+    already_done = already_done["name"].tolist()
 
     for already_done_file in already_done:
         if already_done_file in files:
@@ -165,12 +178,21 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
 
     :param unprocessed_stocks: pd.DataFrame (date, symbol, value, volume, name)
     """
-    unprocessed_stocks["value"] = unprocessed_stocks["value"].apply(floatify).astype(float)
+    unprocessed_stocks["value"] = (
+        unprocessed_stocks["value"].apply(floatify).astype(float)
+    )
 
     df_len = len(unprocessed_stocks)
-    unprocessed_stocks['value'] = unprocessed_stocks.groupby(['date', 'symbol'])['value'].mean()
-    unprocessed_stocks['volume'] = unprocessed_stocks.groupby(['date', 'symbol'])['volume'].mean()
-    logger.log(mylogging.DEBUG, f"Averaging {df_len - len(unprocessed_stocks)} common datapoint from different market.")
+    unprocessed_stocks["value"] = unprocessed_stocks.groupby(["date", "symbol"])[
+        "value"
+    ].mean()
+    unprocessed_stocks["volume"] = unprocessed_stocks.groupby(["date", "symbol"])[
+        "volume"
+    ].mean()
+    logger.log(
+        mylogging.DEBUG,
+        f"Averaging {df_len - len(unprocessed_stocks)} common datapoint from different market.",
+    )
     logger.log(mylogging.DEBUG, f"New len: {len(unprocessed_stocks)}")
 
     # drop date from index to group by symbol
@@ -178,7 +200,7 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     unprocessed_stocks.set_index(["symbol"], inplace=True)
     unprocessed_stocks.sort_index(inplace=True)
 
-    std_per_symbol = unprocessed_stocks.groupby(['symbol'])['value'].std()
+    std_per_symbol = unprocessed_stocks.groupby(["symbol"])["value"].std()
     symbols_to_remove = std_per_symbol[std_per_symbol == 0].index
 
     unprocessed_stocks.drop(symbols_to_remove, inplace=True)
@@ -191,22 +213,33 @@ def process_stocks(unprocessed_stocks: pd.DataFrame):
     logger.log(mylogging.DEBUG, f"Removed {len(symbols_to_remove)} rows with std <= 0.")
 
     df_len = len(unprocessed_stocks)
-    max_int_value = 2 ** 31 - 1  # 4 bytes int
+    max_int_value = 2**31 - 1  # 4 bytes int
     remove_negative_volume(unprocessed_stocks)
     unprocessed_stocks.drop(columns=["volume"], inplace=True)
 
     removed_rows = df_len - len(unprocessed_stocks)
     percentage_removed = removed_rows / df_len * 100
-    logger.log(mylogging.DEBUG, f"Removed {removed_rows} ({percentage_removed:.2f}%) bad data (negative volume).")
+    logger.log(
+        mylogging.DEBUG,
+        f"Removed {removed_rows} ({percentage_removed:.2f}%) bad data (negative volume).",
+    )
 
     df_len = len(unprocessed_stocks)
-    unprocessed_stocks.drop(unprocessed_stocks[unprocessed_stocks["volume_diff"] >= max_int_value].index, inplace=True)
-    unprocessed_stocks.drop(unprocessed_stocks[unprocessed_stocks["value"] >= max_int_value].index, inplace=True)
+    unprocessed_stocks.drop(
+        unprocessed_stocks[unprocessed_stocks["volume_diff"] >= max_int_value].index,
+        inplace=True,
+    )
+    unprocessed_stocks.drop(
+        unprocessed_stocks[unprocessed_stocks["value"] >= max_int_value].index,
+        inplace=True,
+    )
 
     removed_rows = df_len - len(unprocessed_stocks)
     percentage_removed = removed_rows / df_len * 100
-    logger.log(mylogging.DEBUG,
-               f"Removed {removed_rows} ({percentage_removed:.2f}%) bad data (too big volume or value).")
+    logger.log(
+        mylogging.DEBUG,
+        f"Removed {removed_rows} ({percentage_removed:.2f}%) bad data (too big volume or value).",
+    )
 
     unprocessed_stocks.rename(columns={"volume_diff": "volume"}, inplace=True)
     unprocessed_stocks["volume"] = unprocessed_stocks["volume"].astype(int)
@@ -227,10 +260,20 @@ def write_df_chunk(chunk: pd.DataFrame, table: str, commit: bool = False):
     # tmp_db = tsdb.TimescaleStockMarketModel("bourse", "ricou", "db", "monmdp")
     # tmp_db.df_write(chunk, table, commit)
 
-    connection = psycopg2.connect(database="bourse", user="ricou", host="db", password="monmdp")
+    connection = psycopg2.connect(
+        database="bourse", user="ricou", host="db", password="monmdp"
+    )
     engine = sqlalchemy.create_engine(f"timescaledb://ricou:monmdp@db:5432/bourse")
-    chunk.to_sql(table, engine, if_exists='append', index=True, index_label=None,
-                 chunksize=1000, dtype=None, method="multi")
+    chunk.to_sql(
+        table,
+        engine,
+        if_exists="append",
+        index=True,
+        index_label=None,
+        chunksize=1000,
+        dtype=None,
+        method="multi",
+    )
 
     if commit:
         connection.commit()
@@ -250,7 +293,10 @@ def multiprocess_write_df(df: pd.DataFrame, table: str, commit: bool = False):
     cpu_count = max(os.cpu_count() - 1, 1)
     chunks = np.array_split(df, cpu_count)
 
-    logger.log(mylogging.DEBUG, f"Inserting {len(df)} rows in {table} with {cpu_count} processes.")
+    logger.log(
+        mylogging.DEBUG,
+        f"Inserting {len(df)} rows in {table} with {cpu_count} processes.",
+    )
 
     with Pool(cpu_count) as p:
         p.starmap(write_df_chunk, [(chunk, table, commit) for chunk in chunks])
@@ -265,44 +311,56 @@ def process_companies(stocks: pd.DataFrame):
 
     :param stocks: pd.DataFrame (date, symbol, value, volume, name)
     """
-    new_companies_df = stocks[['name']].drop_duplicates()
+    new_companies_df = stocks[["name"]].drop_duplicates()
     new_companies_df.reset_index(inplace=True)
-    new_companies_df.drop(columns=['date'], inplace=True)
+    new_companies_df.drop(columns=["date"], inplace=True)
 
     companies_df = db.df_query("SELECT id, name, symbol FROM companies", chunksize=None)
 
-    merge_df = new_companies_df.merge(companies_df, on=['name', 'symbol'], how='left', indicator=True)
-    new_companies_df = merge_df[merge_df['_merge'] == 'left_only'][['name', 'symbol']]
+    merge_df = new_companies_df.merge(
+        companies_df, on=["name", "symbol"], how="left", indicator=True
+    )
+    new_companies_df = merge_df[merge_df["_merge"] == "left_only"][["name", "symbol"]]
 
     logger.log(mylogging.DEBUG, f"New companies to add/update: {len(new_companies_df)}")
 
     for name, symbol in new_companies_df.values:
-        id = companies_df[companies_df['symbol'] == symbol]['id']
+        id = companies_df[companies_df["symbol"] == symbol]["id"]
         if len(id) != 0:
-            old_name = companies_df[companies_df['symbol'] == symbol]['name'].values[0]
+            old_name = companies_df[companies_df["symbol"] == symbol]["name"].values[0]
             if old_name != name and not name.startswith("SRD"):
-                db.execute("UPDATE companies SET name = %s WHERE id = %s", (name, float(id.values[0])), commit=True)
+                db.execute(
+                    "UPDATE companies SET name = %s WHERE id = %s",
+                    (name, float(id.values[0])),
+                    commit=True,
+                )
 
                 new_companies_df.drop(
-                    new_companies_df[(new_companies_df['name'] == name) & (new_companies_df['symbol'] == symbol)].index,
-                    inplace=True)
+                    new_companies_df[
+                        (new_companies_df["name"] == name)
+                        & (new_companies_df["symbol"] == symbol)
+                    ].index,
+                    inplace=True,
+                )
 
                 # logger.log(mylogging.DEBUG,
                 #            f"Updated company from {old_name} to {name} {symbol}, new len {len(new_companies_df)}")
 
     new_companies_df.reset_index(drop=True, inplace=True)
 
-    db.df_write(new_companies_df, 'companies', index=False, commit=True)
+    db.df_write(new_companies_df, "companies", index=False, commit=True)
     companies_df = db.df_query("SELECT id, symbol FROM companies", chunksize=None)
 
-    stocks.drop(columns=['name'], inplace=True)
+    stocks.drop(columns=["name"], inplace=True)
     stocks.reset_index(inplace=True)  # stocks column date, value, volume, symbol
 
-    stocks = stocks.merge(companies_df, left_on='symbol', right_on='symbol')  # date, value, volume, symbol, id
-    stocks.rename(columns={'id': 'cid'}, inplace=True)
+    stocks = stocks.merge(
+        companies_df, left_on="symbol", right_on="symbol"
+    )  # date, value, volume, symbol, id
+    stocks.rename(columns={"id": "cid"}, inplace=True)
 
     stocks.set_index(["date", "cid"], inplace=True)
-    stocks.drop(columns=['symbol'], inplace=True)
+    stocks.drop(columns=["symbol"], inplace=True)
 
     return stocks
 
@@ -345,17 +403,25 @@ def store_month(year: str, month: str) -> list[str]:
     logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
     stocks = process_companies(stocks)
 
-    logger.log(mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows.")
-    multiprocess_write_df(stocks, 'stocks')
+    logger.log(
+        mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows."
+    )
+    multiprocess_write_df(stocks, "stocks")
     # db.df_write(stocks, 'stocks', commit=True)
-    logger.log(mylogging.DEBUG, f"stocks count: {db.execute('SELECT COUNT(*) FROM stocks')[0][0]}")
+    logger.log(
+        mylogging.DEBUG,
+        f"stocks count: {db.execute('SELECT COUNT(*) FROM stocks')[0][0]}",
+    )
 
     logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")
     daystocks = compute_daystocks(stocks)
 
     logger.log(mylogging.INFO, f"Storing daystocks {year} {month} in DB.")
-    multiprocess_write_df(daystocks, 'daystocks')
-    logger.log(mylogging.DEBUG, f"daystocks count: {db.execute('SELECT COUNT(*) FROM daystocks')[0][0]}")
+    multiprocess_write_df(daystocks, "daystocks")
+    logger.log(
+        mylogging.DEBUG,
+        f"daystocks count: {db.execute('SELECT COUNT(*) FROM daystocks')[0][0]}",
+    )
 
     return files
 
@@ -372,7 +438,15 @@ if __name__ == "__main__":
             file_count += len(files)
 
             for file in files:
-                db.execute("INSERT INTO file_done (name) VALUES (%s)", (file,), commit=True)
-            logger.log(mylogging.DEBUG, f'file_done count: {db.execute("SELECT COUNT(name) FROM file_done")[0][0]}')
+                db.execute(
+                    "INSERT INTO file_done (name) VALUES (%s)", (file,), commit=True
+                )
+            logger.log(
+                mylogging.DEBUG,
+                f'file_done count: {db.execute("SELECT COUNT(name) FROM file_done")[0][0]}',
+            )
 
-    logger.log(mylogging.DEBUG, f"Stored {file_count} files in total (should be 271325).")
+    logger.log(
+        mylogging.DEBUG, f"Stored {file_count} files in total (should be 271325)."
+    )
+    print("Done")
