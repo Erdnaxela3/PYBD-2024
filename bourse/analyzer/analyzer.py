@@ -360,9 +360,7 @@ def process_companies(stocks: pd.DataFrame):
     stocks.rename(columns={"id": "cid"}, inplace=True)
 
     stocks.set_index(["date", "cid"], inplace=True)
-    stocks.drop(columns=["symbol"], inplace=True)
-
-    # resample per 1h, average value, sum volume
+    stocks.drop(columns=["symbol"], inplace=True)    
 
     return stocks
 
@@ -385,9 +383,11 @@ def resample_by_hours(stocks: pd.DataFrame) -> pd.DataFrame:
     stocks.drop(stocks[stocks["volume"] >= max_int_value].index, inplace=True)
     logger.log(mylogging.INFO, f"Removed rows with volume >= 2**31 - 1. New len: {len(stocks)}")
 
+    stocks.drop_duplicates(inplace=True)
+
     return stocks
 
-def store_month(year: str, month: str) -> list[str]:
+def store_month(year: str, month: str, daybatch: str) -> list[str]:
     """
     Store a month of data on the database.
     Store in the database the stocks, companies and daystocks.
@@ -403,33 +403,34 @@ def store_month(year: str, month: str) -> list[str]:
 
     :param year: str
     :param month: str
+    :param daybatch: str
     :return: list[str] list of files stored
     """
-    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}*")
-    logger.log(mylogging.INFO, f"Storing {year} {month}. Found {len(files)} files.")
+    files = glob.glob(f"{BOURSORAMA_PATH}/{year}/* {year}-{month}-{daybatch}*")
+    logger.log(mylogging.INFO, f"Storing {year} {month} {daybatch}. Found {len(files)} files.")
 
     if len(files) == 0:
         return []
 
-    logger.log(mylogging.INFO, f"Loading {year} {month}.")
+    logger.log(mylogging.INFO, f"Loading {year} {month} {daybatch}.")
     stocks = load_df_from_files(files)
 
     if stocks is None:
         return []
 
-    logger.log(mylogging.INFO, f"Loaded {year} {month}, {len(stocks)} rows.")
+    logger.log(mylogging.INFO, f"Loaded {year} {month} {daybatch}, {len(stocks)} rows.")
 
-    logger.log(mylogging.INFO, f"Processing stocks {year} {month}.")
+    logger.log(mylogging.INFO, f"Processing stocks {year} {month} {daybatch}.")
     process_stocks(stocks)
 
-    logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
+    logger.log(mylogging.INFO, f"Adding companies {year} {month} {daybatch}.")
     stocks = process_companies(stocks)
 
 
-    logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")
+    logger.log(mylogging.INFO, f"Computing daystock {year} {month} {daybatch}.")
     daystocks = compute_daystocks(stocks)
 
-    logger.log(mylogging.INFO, f"Storing daystocks {year} {month} in DB.")
+    logger.log(mylogging.INFO, f"Storing daystocks {year} {month} {daybatch} in DB.")
     multiprocess_write_df(daystocks, "daystocks")
     logger.log(
         mylogging.DEBUG,
@@ -439,7 +440,7 @@ def store_month(year: str, month: str) -> list[str]:
     stocks = resample_by_hours(stocks)
 
     logger.log(
-        mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows."
+        mylogging.INFO, f"Storing stocks {year} {month} {daybatch} in DB, {len(stocks)} rows."
     )
     multiprocess_write_df(stocks, "stocks")
     # db.df_write(stocks, 'stocks', commit=True)
@@ -454,22 +455,23 @@ def store_month(year: str, month: str) -> list[str]:
 if __name__ == "__main__":
     years = [str(year) for year in range(2019, 2024)]
     months = [f"{month:02d}" for month in range(1, 13)]
-
+    daybatches = ["0", "1", "[23]"]
     file_count = 0
 
     for year in years:
         for month in months:
-            files = store_month(year, month)
-            file_count += len(files)
+            for daybatch in daybatches:
+                files = store_month(year, month, daybatch)
+                file_count += len(files)
 
-            for file in files:
-                db.execute(
-                    "INSERT INTO file_done (name) VALUES (%s)", (file,), commit=True
+                for file in files:
+                    db.execute(
+                        "INSERT INTO file_done (name) VALUES (%s)", (file,), commit=True
+                    )
+                logger.log(
+                    mylogging.DEBUG,
+                    f'file_done count: {db.execute("SELECT COUNT(name) FROM file_done")[0][0]}',
                 )
-            logger.log(
-                mylogging.DEBUG,
-                f'file_done count: {db.execute("SELECT COUNT(name) FROM file_done")[0][0]}',
-            )
 
     logger.log(
         mylogging.DEBUG, f"Stored {file_count} files in total (should be 271325)."
