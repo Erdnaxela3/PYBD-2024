@@ -41,7 +41,10 @@ def get_companies() -> pd.DataFrame:
     :return: pd.DataFrame
     """
     query = f"SELECT id, name, symbol FROM companies"
-    companies_df = pd.read_sql(query, engine)
+    try:
+        companies_df = pd.read_sql(query, engine)
+    except:
+        companies_df = pd.DataFrame({'id': [], 'name': [], 'symbol': []})
     return companies_df
 
 
