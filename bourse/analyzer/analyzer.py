@@ -362,8 +362,30 @@ def process_companies(stocks: pd.DataFrame):
     stocks.set_index(["date", "cid"], inplace=True)
     stocks.drop(columns=["symbol"], inplace=True)
 
+    # resample per 1h, average value, sum volume
+
     return stocks
 
+def resample_by_hours(stocks: pd.DataFrame) -> pd.DataFrame:
+    """
+    Resample stocks by hours and group by cid.
+    Take the mean of 'value' and the sum of 'volume'.
+
+    :param stocks: pd.DataFrame with indexes: ('date', 'cid') and columns: (value', 'volume')
+    :return: pd.DataFrame with ('date', 'cid'), 'value', 'volume'
+    """
+
+    logger.log(mylogging.INFO, f"Resampling stocks by hours. Current len: {len(stocks)}")
+    stocks.reset_index(inplace=True)
+    stocks = stocks.groupby('cid').resample('1h', on='date').agg({'value': 'mean', 'volume': 'sum'})
+    logger.log(mylogging.INFO, f"Resampled stocks by hours. New len: {len(stocks)}")
+
+    logger.log(mylogging.INFO, f"Removing rows with volume >= 2**31 - 1. Current len: {len(stocks)}")
+    max_int_value = 2**31 - 1
+    stocks.drop(stocks[stocks["volume"] >= max_int_value].index, inplace=True)
+    logger.log(mylogging.INFO, f"Removed rows with volume >= 2**31 - 1. New len: {len(stocks)}")
+
+    return stocks
 
 def store_month(year: str, month: str) -> list[str]:
     """
@@ -403,15 +425,6 @@ def store_month(year: str, month: str) -> list[str]:
     logger.log(mylogging.INFO, f"Adding companies {year} {month}.")
     stocks = process_companies(stocks)
 
-    logger.log(
-        mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows."
-    )
-    multiprocess_write_df(stocks, "stocks")
-    # db.df_write(stocks, 'stocks', commit=True)
-    logger.log(
-        mylogging.DEBUG,
-        f"stocks count: {db.execute('SELECT COUNT(*) FROM stocks')[0][0]}",
-    )
 
     logger.log(mylogging.INFO, f"Computing daystock {year} {month}.")
     daystocks = compute_daystocks(stocks)
@@ -421,6 +434,18 @@ def store_month(year: str, month: str) -> list[str]:
     logger.log(
         mylogging.DEBUG,
         f"daystocks count: {db.execute('SELECT COUNT(*) FROM daystocks')[0][0]}",
+    )
+
+    stocks = resample_by_hours(stocks)
+
+    logger.log(
+        mylogging.INFO, f"Storing stocks {year} {month} in DB, {len(stocks)} rows."
+    )
+    multiprocess_write_df(stocks, "stocks")
+    # db.df_write(stocks, 'stocks', commit=True)
+    logger.log(
+        mylogging.DEBUG,
+        f"stocks count: {db.execute('SELECT COUNT(*) FROM stocks')[0][0]}",
     )
 
     return files
