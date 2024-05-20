@@ -82,9 +82,9 @@ def period_dropdown() -> dcc.Dropdown:
         options=[
             {"label": "1h", "value": "1h"},
             {"label": "1d", "value": "1d"},
-            {"label": "1w", "value": "1W"},
-            {"label": "1m", "value": "1ME"},
-            {"label": "1y", "value": "1YE"},
+            {"label": "1W", "value": "1W"},
+            {"label": "1ME", "value": "1ME"},
+            {"label": "1YE", "value": "1YE"},
         ],
         clearable=False,
         value="1d",
@@ -334,7 +334,7 @@ def update_selected_companies_plot(
         pass
 
     rangebreaks = []
-    if period not in ["1w", "1m", "1y"]:
+    if period not in ["1W", "1ME", "1YE"]:
         # choosing a period that is bigger than a day can result in a "datapoint" that start a weekend day
         rangebreaks.append({'pattern': 'day of week', 'bounds': [6, 1]})
     if period in ["1h"]:
