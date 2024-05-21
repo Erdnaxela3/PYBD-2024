@@ -6,7 +6,7 @@ import pandas as pd
 import sqlalchemy
 import plotly.graph_objects as go
 import plotly.io as pio
-from datetime import date
+from datetime import date, datetime
 from dash import Input, Output, State, html
 import dash_bootstrap_components as dbc
 import dash_daq as daq
@@ -33,6 +33,16 @@ app = dash.Dash(
 )
 server = app.server
 
+non_moving_fr_holiday = ["01-01", "05-01", "05-08", "07-14", "08-15", "11-01", "11-11", "12-25"]
+easter = ["2019-04-22", "2020-04-13", "2021-04-05", "2022-04-18", "2023-04-10"]
+ascension = ["2019-05-30", "2020-05-21", "2021-05-13", "2022-05-26", "2023-05-18"]
+pentecote = ["2019-06-10", "2020-06-01", "2021-05-24", "2022-06-06", "2023-05-29"]
+holidays = []
+for year in range(2019, 2024):
+    for day in non_moving_fr_holiday:
+        holidays.append(f"{year}-{day}")
+holidays += easter + ascension + pentecote 
+holidays = [datetime.strptime(h, "%Y-%m-%d") for h in holidays]
 
 def get_companies() -> pd.DataFrame:
     """
@@ -340,6 +350,7 @@ def update_selected_companies_plot(
     if period in ["1h"]:
         # choosing a period bigger than an hour result in datapoint starting a 00:00am, that would be removed
         rangebreaks.append({'pattern': 'hour', 'bounds': [18, 9]})
+        rangebreaks.append(dict(values=holidays))
 
     fig.update_xaxes(
         rangebreaks=rangebreaks,

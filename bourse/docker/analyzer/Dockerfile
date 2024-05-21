@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM reg.undercloud.cri.epita.fr/docker/ubuntu:latest
 MAINTAINER Olivier Ricou <olivier@ricou.eu.org>
 
 # If you have a web spider getting data, then you can run 
