@@ -42,7 +42,7 @@ for year in range(2019, 2024):
     for day in non_moving_fr_holiday:
         holidays.append(f"{year}-{day}")
 holidays += easter + ascension + pentecote 
-holidays = [datetime.strptime(h, "%Y-%m-%d") for h in holidays]
+holidays = [pd.Timestamp(h) for h in holidays]
 
 def get_companies() -> pd.DataFrame:
     """
@@ -347,10 +347,10 @@ def update_selected_companies_plot(
     if period not in ["1W", "1ME", "1YE"]:
         # choosing a period that is bigger than a day can result in a "datapoint" that start a weekend day
         rangebreaks.append({'pattern': 'day of week', 'bounds': [6, 1]})
+        rangebreaks.append(dict(values=holidays))
     if period in ["1h"]:
         # choosing a period bigger than an hour result in datapoint starting a 00:00am, that would be removed
         rangebreaks.append({'pattern': 'hour', 'bounds': [18, 9]})
-        rangebreaks.append(dict(values=holidays))
 
     fig.update_xaxes(
         rangebreaks=rangebreaks,
