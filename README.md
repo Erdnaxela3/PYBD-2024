@@ -15,6 +15,11 @@ Lançer l'ensemble des services:
 ```bash
 docker-compose up
 ```
+Peut parfois crash, dans ce cas
+```bash
+docker-compose down # dans un autre terminal
+```
+Puis retenter
 
 ## Membres du groupe
 - Juliette JIN <juliette.jin@epita.fr>
