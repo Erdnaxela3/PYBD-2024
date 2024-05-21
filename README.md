@@ -23,8 +23,7 @@ docker-compose up
 
 ## Analyzer
 
-- Pour accélérer le processus, les fichiers sont gérés dizaines de jour par dizaines (01-09, 10-19, 20-31), pour économiser du temps processing qui sont les mêmes pour chaque fichiers. On le fera par ordre chronologique pour gérer les possibles changements de noms d'entreprises. (Le batch minimum serait de 1 jour pour pouvoir calculer les volumes de manière correcte)
-- Et pour ne pas surcharger la RAM (mois par mois fait planter)
+- Pour accélérer le processus, les fichiers sont gérés dizaines de jour par dizaines (01-09, 10-19, 20-31), pour économiser du temps processing qui sont les mêmes pour chaque fichiers et pour ne pas surcharger la RAM (mois par mois fait planter). On le fera par ordre chronologique pour gérer les possibles changements de noms d'entreprises. (Le batch minimum serait de 1 jour pour pouvoir calculer les volumes de manière correcte)
 
 - Les marchés (compA, compB, pea-pme, amsterdam...) ne sont pas pris en compte. On considère que des actions avec le même symbole sont la même entreprise et la même action. compA, compB et pea-pme ne représentant pas des marchés, il a été décidé de laisser la colonne market vide. Elle pourra être remplie si besoin, mais n'est pas utile pour le moment.
 
@@ -32,7 +31,7 @@ docker-compose up
 
 - Si on a des données provenant de fichiers différents pour le même symbole pour le même horaire on prend la moyenne des valeurs. (exemple: 2 fichiers du 01/01/2000 10h01:00.013 qui nous donnent 10.01 et 10.02 pour la valorisation d'un même symbole, on prendra 10.015.)
 
-- Les données initialles des fichiers donnent les volumes cumulés sur la journée, on choisit de calculer le un volume échangé depuis le dernier datapoint plutôt, pour avoir moins de données incohérentes.
+- Les données initialles des fichiers donnent les volumes cumulés sur la journée, on choisit de calculer le volume échangé depuis le dernier datapoint plutôt, pour avoir moins de données incohérentes.
 - Les volumes échangés négatifs sont ignorés, car incohérents.
 - Les volumes échangés et valeurs dépassant un INT32 bit sont ignorés car impossibles à stocker dans la DB sans changer le type de la colonne.
 
@@ -42,17 +41,19 @@ docker-compose up
 
 - Pour daystocks, dans le cas où une action aurait un volume échangé cumulé de la journée supérieur à la limite d'un INT32, on décide de stocker -1 dans la colonne volume, pour indiquer que le volume est trop grand pour être stocké et ne pas perdre les autres informations de la ligne.
 
-- Multiprocessing pour insérer les données plus rapidement dans la base de données.
+- Pour insérer les données plus rapidement dans la base de données, on fait du multiprocessing.
 
-- daystocks calculé et stockés avant le stockage de stocks pour ne pas fausser les données
+- Les daystocks sont calculés et stockés avant le stockage de stocks pour ne pas fausser les données.
 
-- resampling par heure pour réduire la quantité de donnée stocké dans stocks (après stockage de daystocks dans la DB)
-- drop_duplicate sur le df de stocks (après stockage de daystocks dans la DB) pour gérer le problème de stockage des PC du CRI.
+- Dans la mesure où le projet doit pouvoir tourner sur les machines de l'école et qu'ils ont un espace de stockage réduit, nous avons fait du resampling par heure pour réduire la quantité de données stockés dans stocks (après stockage de daystocks dans la DB).
 
+- Et nous avons fait un drop_duplicate sur le df de stocks (après stockage de daystocks dans la DB) toujours pour gérer le problème de stockage des PC du CRI.
+
+- Les jours fériés ne sont pas pris en compte.
 
 ## Dashboard (Inspiré de l'interface de TradingView)
 
-- N'affiche pas les weekends, car la bourse est fermée ces jours là. Celà permet d'avoir des graphiques plus lisibles.
+- N'affiche pas les weekends, les jours fériés, car la bourse est fermée ces jours là. Cela permet d'avoir des graphiques plus lisibles.
 - Pour la même raison, les heures entre 18h et 9h ne sont pas affichées.
 - Ajout du choix de la période de temps pour avoir des bougies qui peuvent représenter des jours, semaines, mois, années.
 
