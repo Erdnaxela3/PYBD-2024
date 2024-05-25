@@ -50,6 +50,9 @@ for year in range(2019, 2024):
         holidays.append(f"{year}-{day}")
 holidays += easter + ascension + pentecote
 holidays = [pd.Timestamp(h) for h in holidays]
+holidays = pd.to_datetime(
+    [datetime.strftime(h, format="%Y-%m-%d %H:%M:%S+00:00") for h in holidays]
+)
 
 
 def get_companies() -> pd.DataFrame:
@@ -339,6 +342,7 @@ def update_selected_companies_plot(
         stocks_df["STD20"] = stocks_df.value.rolling(window=20).std()
         stocks_df["upper"] = stocks_df["MA20"] + (stocks_df["STD20"] * 2)
         stocks_df["lower"] = stocks_df["MA20"] - (stocks_df["STD20"] * 2)
+        stocks_df = stocks_df[~stocks_df.index.isin(holidays)]
 
         graph_figure_data += [
             go.Line(x=stocks_df.index, y=stocks_df["MA20"], name="MA20"),
