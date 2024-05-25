@@ -1,17 +1,14 @@
-import dash
-from dash import dcc
-from dash import html
-import dash.dependencies as ddep
-import pandas as pd
-import sqlalchemy
-import plotly.graph_objects as go
-import plotly.io as pio
 from datetime import date, datetime
-from dash import Input, Output, State, html
+
+import dash
+import dash.dependencies as ddep
 import dash_bootstrap_components as dbc
 import dash_daq as daq
-
-
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.io as pio
+import sqlalchemy
+from dash import Input, Output, State, dcc, html
 from dash.dcc import RadioItems
 
 external_stylesheets = [
@@ -29,11 +26,21 @@ app = dash.Dash(
     __name__,
     title="Bourse",
     suppress_callback_exceptions=True,
-    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME] + external_stylesheets,
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME]
+    + external_stylesheets,
 )
 server = app.server
 
-non_moving_fr_holiday = ["01-01", "05-01", "05-08", "07-14", "08-15", "11-01", "11-11", "12-25"]
+non_moving_fr_holiday = [
+    "01-01",
+    "05-01",
+    "05-08",
+    "07-14",
+    "08-15",
+    "11-01",
+    "11-11",
+    "12-25",
+]
 easter = ["2019-04-22", "2020-04-13", "2021-04-05", "2022-04-18", "2023-04-10"]
 ascension = ["2019-05-30", "2020-05-21", "2021-05-13", "2022-05-26", "2023-05-18"]
 pentecote = ["2019-06-10", "2020-06-01", "2021-05-24", "2022-06-06", "2023-05-29"]
@@ -41,8 +48,9 @@ holidays = []
 for year in range(2019, 2024):
     for day in non_moving_fr_holiday:
         holidays.append(f"{year}-{day}")
-holidays += easter + ascension + pentecote 
+holidays += easter + ascension + pentecote
 holidays = [pd.Timestamp(h) for h in holidays]
+
 
 def get_companies() -> pd.DataFrame:
     """
@@ -54,7 +62,7 @@ def get_companies() -> pd.DataFrame:
     try:
         companies_df = pd.read_sql(query, engine)
     except:
-        companies_df = pd.DataFrame({'id': [], 'name': [], 'symbol': []})
+        companies_df = pd.DataFrame({"id": [], "name": [], "symbol": []})
     return companies_df
 
 
@@ -102,13 +110,16 @@ def period_dropdown() -> dcc.Dropdown:
         style={"flex": "1", "maxWidth": "60px", "maxHeight": "50px", "border": "none"},
     )
 
+
 def date_range_picker() -> dcc.DatePickerRange:
     """
     Date range picker to select the date range to display.
 
     :return: dcc.DatePickerRange
     """
-    return dcc.DatePickerRange(id="date-range-picker", style={"minWidth": "100px", "border": "none"})
+    return dcc.DatePickerRange(
+        id="date-range-picker", style={"minWidth": "100px", "border": "none"}
+    )
 
 
 def plot_style_dropdown() -> dcc.Dropdown:
@@ -123,7 +134,10 @@ def plot_style_dropdown() -> dcc.Dropdown:
             {
                 "label": html.Div(
                     [
-                        html.Span(className="material-symbols-outlined", children="candlestick_chart"),
+                        html.Span(
+                            className="material-symbols-outlined",
+                            children="candlestick_chart",
+                        ),
                         html.Span("Candles"),
                     ],
                     id="candle-option",
@@ -134,7 +148,9 @@ def plot_style_dropdown() -> dcc.Dropdown:
             {
                 "label": html.Div(
                     [
-                        html.Span(className="material-symbols-outlined", children="show_chart"),
+                        html.Span(
+                            className="material-symbols-outlined", children="show_chart"
+                        ),
                         html.Span("Line"),
                     ],
                     id="line-option",
@@ -228,8 +244,11 @@ def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | No
         id="indicator-stock-cid",
         placeholder="On company",
         clearable=True,
-        options=[{"label": info.split("#")[2], "value": info.split("#")[0]} for info in selected_companies],
-        className = "dropdown-dark" if dark_mode else "dropdown",
+        options=[
+            {"label": info.split("#")[2], "value": info.split("#")[0]}
+            for info in selected_companies
+        ],
+        className="dropdown-dark" if dark_mode else "dropdown",
         style={"flex": "1", "minWidth": "200px", "border": "none"},
     )
 
@@ -249,15 +268,15 @@ def stock_used_for_indicator(selected_companies, dark_mode) -> dcc.Dropdown | No
     ],
 )
 def update_selected_companies_plot(
-        selected_values: list[str],
-        period: str,
-        start_date,
-        end_date,
-        plot_style: str,
-        scale: str,
-        indicators: list[str],
-        indicator_stock_cid: str | int | None,
-        dark_mode_on,
+    selected_values: list[str],
+    period: str,
+    start_date,
+    end_date,
+    plot_style: str,
+    scale: str,
+    indicators: list[str],
+    indicator_stock_cid: str | int | None,
+    dark_mode_on,
 ) -> go.Figure:
     template_name = theme_name + "_dark" if dark_mode_on else theme_name
     if selected_values is None or len(selected_values) == 0:
@@ -271,7 +290,7 @@ def update_selected_companies_plot(
     selected_cids = [int(cid.split("#")[0]) for cid in selected_values]
 
     query = (
-        f"SELECT *"
+        f"SELECT date, cid, value"
         f" FROM stocks"
         f" WHERE cid IN ({', '.join(map(str, selected_cids))})"
         f" AND date BETWEEN '{start_date}' AND '{end_date}'"
@@ -304,6 +323,14 @@ def update_selected_companies_plot(
             graph_figure_data.append(go_line(stocks_df, float(cid), name))
 
     if "bollinger-bands" in indicators and indicator_stock_cid is not None:
+        stocks_df.reset_index(inplace=True)
+        stocks_df = (
+            stocks_df.groupby("cid").resample(period, on="date").agg({"value": "mean"})
+        )
+        stocks_df.dropna(inplace=True)
+        stocks_df.reset_index(inplace=True)
+        stocks_df.set_index("date", inplace=True)
+
         stocks_df = stocks_df[
             stocks_df["cid"] == float(indicator_stock_cid)
         ]  # only work when using float, don't know why
@@ -346,17 +373,18 @@ def update_selected_companies_plot(
     rangebreaks = []
     if period not in ["1W", "1ME", "1YE"]:
         # choosing a period that is bigger than a day can result in a "datapoint" that start a weekend day
-        rangebreaks.append({'pattern': 'day of week', 'bounds': [6, 1]})
+        rangebreaks.append({"pattern": "day of week", "bounds": [6, 1]})
         rangebreaks.append(dict(values=holidays))
     if period in ["1h"]:
         # choosing a period bigger than an hour result in datapoint starting a 00:00am, that would be removed
-        rangebreaks.append({'pattern': 'hour', 'bounds': [18, 9]})
+        rangebreaks.append({"pattern": "hour", "bounds": [18, 9]})
 
     fig.update_xaxes(
         rangebreaks=rangebreaks,
     )
 
     return fig
+
 
 def format_table_cell(value: any, column_name: str) -> str:
     if column_name == "date":
@@ -365,6 +393,7 @@ def format_table_cell(value: any, column_name: str) -> str:
         return f"{value:.2f}"
     else:
         return value
+
 
 @app.callback(
     ddep.Output("selected-companies-table", "children"),
@@ -375,7 +404,9 @@ def format_table_cell(value: any, column_name: str) -> str:
         ddep.Input("darktheme-daq-booleanswitch", "on"),
     ],
 )
-def update_selected_companies_table(selected_values, start_date, end_date, dark_mode) -> html.Div:
+def update_selected_companies_table(
+    selected_values, start_date, end_date, dark_mode
+) -> html.Div:
     if selected_values is None or len(selected_values) == 0:
         return html.Div()
 
@@ -393,11 +424,13 @@ def update_selected_companies_table(selected_values, start_date, end_date, dark_
         company_id, _, company_name = selected_company.split("#")
 
         # Query data for the current company
-        query = f"SELECT * FROM daystocks"\
-                f" WHERE cid = {company_id}"\
-                f" AND date BETWEEN '{start_date}'"\
-                f" AND '{end_date}'"\
-                " ORDER BY date"
+        query = (
+            f"SELECT * FROM daystocks"
+            f" WHERE cid = {company_id}"
+            f" AND date BETWEEN '{start_date}'"
+            f" AND '{end_date}'"
+            " ORDER BY date"
+        )
         stocks_df = pd.read_sql(query, engine)
 
         # Generate table content for the current company
@@ -409,12 +442,23 @@ def update_selected_companies_table(selected_values, start_date, end_date, dark_
                             [
                                 html.Tr(
                                     [
-                                        html.Th(col, className="th-dark" if dark_mode else "") for col in table_columns
+                                        html.Th(
+                                            col,
+                                            className="th-dark" if dark_mode else "",
+                                        )
+                                        for col in table_columns
                                     ]
                                 ),
                                 html.Tbody(
                                     [
-                                        html.Tr([html.Td(format_table_cell(row[col], col)) for col in table_columns])
+                                        html.Tr(
+                                            [
+                                                html.Td(
+                                                    format_table_cell(row[col], col)
+                                                )
+                                                for col in table_columns
+                                            ]
+                                        )
                                         for _, row in stocks_df.iterrows()
                                     ]
                                 ),
@@ -428,7 +472,12 @@ def update_selected_companies_table(selected_values, start_date, end_date, dark_
 
         # Append the table content to the list of tabs content
         tabs_content.append(
-            dcc.Tab(label=f"{company_name}", className="dark-tabs" if dark_mode else "", children=[table_content], value=f"company-{company_id}-tab")
+            dcc.Tab(
+                label=f"{company_name}",
+                className="dark-tabs" if dark_mode else "",
+                children=[table_content],
+                value=f"company-{company_id}-tab",
+            )
         )
 
     # Return tabs content wrapped in a Tabs component
@@ -447,13 +496,16 @@ def toggle_modal(n1, n2, is_open):
 
 
 @app.callback(
-    ddep.Output('companies-dropdown', 'options'),
-    [ddep.Input('update-button', 'n_clicks')]
+    ddep.Output("companies-dropdown", "options"),
+    [ddep.Input("update-button", "n_clicks")],
 )
 def update_dropdown_options(n_clicks):
     companies_df = get_companies()
     options = [
-        {'label': f"{row['name']} ({row['symbol']})", 'value': f"{row['id']}#{row['symbol']}#{row['name']}"}
+        {
+            "label": f"{row['name']} ({row['symbol']})",
+            "value": f"{row['id']}#{row['symbol']}#{row['name']}",
+        }
         for _, row in companies_df.iterrows()
     ]
     return options
@@ -468,6 +520,7 @@ def date_toggle_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
+
 
 @app.callback(
     Output("top-panel", "className"),
@@ -488,23 +541,61 @@ def date_toggle_modal(n1, n2, is_open):
     Output("date_modal", "className"),
     Output("selected-companies-table", "className"),
     Output("date-range-picker", "className"),
-    [Input("darktheme-daq-booleanswitch", "on")]
+    [Input("darktheme-daq-booleanswitch", "on")],
 )
 def dark_mode_style(switch_state):
     if switch_state:
-        return "top-panel-dark", "bottom-panel-dark", "squared-button-dark", "squared-button-dark", "squared-button-dark", "panel left-panel-dark", "panel right-panel-dark", "dropdown-dark","dropdown-dark","dropdown-dark", "dropdown-dark", "dropdown-dark", "dropdown-dark", "companies-dropdown-dark", "modal-dark", "modal-dark", "table-content-dark", "dark-mode-date-picker"
+        return (
+            "top-panel-dark",
+            "bottom-panel-dark",
+            "squared-button-dark",
+            "squared-button-dark",
+            "squared-button-dark",
+            "panel left-panel-dark",
+            "panel right-panel-dark",
+            "dropdown-dark",
+            "dropdown-dark",
+            "dropdown-dark",
+            "dropdown-dark",
+            "dropdown-dark",
+            "dropdown-dark",
+            "companies-dropdown-dark",
+            "modal-dark",
+            "modal-dark",
+            "table-content-dark",
+            "dark-mode-date-picker",
+        )
     else:
-        return "top-panel", "bottom-panel", "squared-button", "squared-button", "squared-button", "panel left-panel", "panel right-panel", "dropdown","dropdown","dropdown", "dropdown", "dropdown", "dropdown", "companies-dropdown", "", "", "", ""
+        return (
+            "top-panel",
+            "bottom-panel",
+            "squared-button",
+            "squared-button",
+            "squared-button",
+            "panel left-panel",
+            "panel right-panel",
+            "dropdown",
+            "dropdown",
+            "dropdown",
+            "dropdown",
+            "dropdown",
+            "dropdown",
+            "companies-dropdown",
+            "",
+            "",
+            "",
+            "",
+        )
+
 
 app.layout = html.Div(
     [
         html.Div(
             [
-                 daq.BooleanSwitch(
+                daq.BooleanSwitch(
                     on=False,
                     id="darktheme-daq-booleanswitch",
                     className="dark-theme-control",
-                
                     color="purple",
                 ),
                 html.Button(
@@ -512,7 +603,14 @@ app.layout = html.Div(
                     id="update-button",
                     className="squared-button",
                 ),
-                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                    },
+                ),
                 html.Div(
                     [
                         html.Button(
@@ -525,18 +623,46 @@ app.layout = html.Div(
                             [
                                 dbc.ModalHeader(dbc.ModalTitle("Compare symbol")),
                                 dbc.ModalBody(companies_dropdown()),
-                                dbc.ModalFooter(dbc.Button("Close", id="close", className="ms-auto", n_clicks=0)),
+                                dbc.ModalFooter(
+                                    dbc.Button(
+                                        "Close",
+                                        id="close",
+                                        className="ms-auto",
+                                        n_clicks=0,
+                                    )
+                                ),
                             ],
                             id="modal",
                             is_open=False,
                         ),
                     ]
                 ),
-                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                    },
+                ),
                 period_dropdown(),
-                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                    },
+                ),
                 plot_style_dropdown(),
-                html.Span("", style={"display": "inline-block", "border-left": "2px solid #ccc", "height": "30px"}),
+                html.Span(
+                    "",
+                    style={
+                        "display": "inline-block",
+                        "border-left": "2px solid #ccc",
+                        "height": "30px",
+                    },
+                ),
                 scale_dropdown(),
                 html.Span(
                     "",
@@ -546,8 +672,6 @@ app.layout = html.Div(
                         "height": "30px",
                     },
                 ),
-                
-                
                 html.Div(
                     [
                         html.Button(
@@ -560,7 +684,14 @@ app.layout = html.Div(
                             [
                                 dbc.ModalHeader(dbc.ModalTitle("Choose period")),
                                 dbc.ModalBody(date_range_picker()),
-                                dbc.ModalFooter(dbc.Button("Close", id="date_close", className="ms-auto", n_clicks=0)),
+                                dbc.ModalFooter(
+                                    dbc.Button(
+                                        "Close",
+                                        id="date_close",
+                                        className="ms-auto",
+                                        n_clicks=0,
+                                    )
+                                ),
                             ],
                             id="date_modal",
                             is_open=False,
@@ -578,15 +709,13 @@ app.layout = html.Div(
                 indicators_dropdown(),
                 html.Div(id="indicator-stock"),
             ],
-            id="top-panel",  
+            id="top-panel",
             className="top-panel",
         ),
         html.Div(
             [
                 html.Div(
-                    [
-                        dcc.Graph(id="selected-companies-plot", style={'height': '80vh'})
-                    ],
+                    [dcc.Graph(id="selected-companies-plot", style={"height": "80vh"})],
                     id="left-panel",
                     className="panel left-panel",
                 ),
@@ -598,10 +727,9 @@ app.layout = html.Div(
                     className="panel right-panel",
                 ),
             ],
-            id="bottom-panel",  
+            id="bottom-panel",
             className="bottom-panel",
         ),
-        
     ],
 )
 
