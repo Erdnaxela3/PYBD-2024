@@ -6,20 +6,28 @@ Ce projet a pour but de créer un programme de gestion de portefeuille d'actions
 ## Quick start
 - Temps estimé pour analyzer: 1h15
 - A run en salle CISCO, NixOS Majeures qui a un dossier /srv/libvirt-workdir
-- unzip boursorama.zip # dans /srv/libvirt-workdir, il devrait y avoir /srv/libvirt-workdir/boursorama/20*
+- unzip boursorama.zip dans /srv/libvirt-workdir, il devrait y avoir /srv/libvirt-workdir/boursorama/20*
 - supprimer boursorama.zip pour libérer de l'espace
 - (Nos tests ont été fait avec le projet dans l'afs)
 
 ### Lancer analyzer
+
+Dans bourse/docker/analyzer et bourse/docker/dashboard:
+```bash
+make
+```
+
+Modifier les paths dans bourse/docker-compose.yml si besoin. (déjà configuré pour /srv/libvirt-workdir/timescaledb et boursorama à /srv/libvirt-workdir/boursorama)
+
 Lançer l'ensemble des services:
 ```bash
 docker-compose up
 ```
-Peut parfois crash, dans ce cas
+Peut parfois crash, dans ce cas, à cause de podman, dans ce cas:
 ```bash
 docker-compose down # dans un autre terminal
 ```
-Puis retenter
+CTRL+C puis retenter
 
 ## Membres du groupe
 - Juliette JIN <juliette.jin@epita.fr>
